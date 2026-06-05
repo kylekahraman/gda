@@ -28,26 +28,43 @@ func (s *Store) objectsDir() string {
 
 // Add reads a file, computes SHA256, stores it in objects/, returns the key.
 func (s *Store) Add(path string) (string, error) {
+	// First pass: Hash the file to see if it already exists in the store
 	f, err := os.Open(path)
+	if err != nil {
+		return "", fmt.Errorf("open %s: %w", path, err)
+	}
+	
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		f.Close()
+		return "", fmt.Errorf("hash file: %w", err)
+	}
+	f.Close()
+
+	key := fmt.Sprintf("%x", h.Sum(nil))
+	if s.Exists(key) {
+		return key, nil
+	}
+
+	// Second pass: Actually copy the file since it doesn't exist in the store
+	f, err = os.Open(path)
 	if err != nil {
 		return "", fmt.Errorf("open %s: %w", path, err)
 	}
 	defer f.Close()
 
-	h := sha256.New()
 	dest, err := os.CreateTemp(s.objectsDir(), ".tmp-*")
 	if err != nil {
 		return "", fmt.Errorf("create temp: %w", err)
 	}
 	defer os.Remove(dest.Name())
 
-	if _, err := io.Copy(io.MultiWriter(h, dest), f); err != nil {
+	if _, err := io.Copy(dest, f); err != nil {
 		dest.Close()
 		return "", fmt.Errorf("copy: %w", err)
 	}
 	dest.Close()
 
-	key := fmt.Sprintf("%x", h.Sum(nil))
 	objPath := s.objectPath(key)
 
 	// Ensure the prefix directory exists

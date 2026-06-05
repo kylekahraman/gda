@@ -149,6 +149,16 @@ func (g *GDA) Move(args []string) error {
 	srcAbs := filepath.Join(rootAbs, src)
 	dstAbs := filepath.Join(rootAbs, dst)
 
+	// SAFETY CHECK: Verify that the source file actually exists, is a symlink,
+	// and points to the correct object key before deleting it.
+	fi, err := os.Lstat(srcAbs)
+	if err != nil {
+		return fmt.Errorf("cannot stat source file: %w", err)
+	}
+	if fi.Mode()&os.ModeSymlink == 0 {
+		return fmt.Errorf("safety abort: %s is not a symlink. It may be modified or unlocked. Run 'gda add' first", src)
+	}
+
 	// Create destination directory
 	if err := os.MkdirAll(filepath.Dir(dstAbs), 0755); err != nil {
 		return fmt.Errorf("create dest dir: %w", err)
@@ -303,6 +313,16 @@ func (g *GDA) Checkout(args []string) error {
 		return err
 	}
 
+	// Identify and remove files tracked in current index but NOT present in snapshot
+	currentIndex := g.Index.All()
+	for path := range currentIndex {
+		if _, exists := snap.Entries[path]; !exists {
+			abs := filepath.Join(rootAbs, path)
+			os.Remove(abs) // Remove symlink, best-effort
+			g.Index.Remove(path)
+		}
+	}
+
 	for path, entry := range snap.Entries {
 		abs := filepath.Join(rootAbs, path)
 		if err := os.MkdirAll(filepath.Dir(abs), 0755); err != nil {
@@ -343,22 +363,43 @@ func (g *GDA) GC(args []string) error {
 		}
 	}
 
-	// Collect all referenced keys
+	// Collect all referenced keys from current index
 	referenced := make(map[string]bool)
 	for _, entry := range g.Index.All() {
 		referenced[entry.Key] = true
+	}
+
+	// Collect all referenced keys from all snapshots
+	snaps, err := index.OpenSnapshots(g.Root)
+	if err == nil {
+		snapList, err := snaps.List()
+		if err == nil {
+			for _, snap := range snapList {
+				for _, entry := range snap.Entries {
+					referenced[entry.Key] = true
+				}
+			}
+		}
 	}
 
 	// Walk objects directory
 	objectsDir := filepath.Join(g.Root, ".gda", "objects")
 	var removed, kept int64
 	var removedSize int64
+	now := time.Now()
+	gracePeriod := 1 * time.Hour
 
-	err := filepath.Walk(objectsDir, func(path string, fi os.FileInfo, err error) error {
+	err = filepath.Walk(objectsDir, func(path string, fi os.FileInfo, err error) error {
 		if err != nil {
 			return nil // skip inaccessible
 		}
 		if fi.IsDir() {
+			return nil
+		}
+
+		// Grace period to prevent race conditions with concurrent additions
+		if now.Sub(fi.ModTime()) < gracePeriod {
+			kept++
 			return nil
 		}
 

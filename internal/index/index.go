@@ -112,13 +112,35 @@ func (idx *Index) Save() error {
 		return fmt.Errorf("marshal index: %w", err)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(idx.path), 0755); err != nil {
+	dir := filepath.Dir(idx.path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("create index dir: %w", err)
 	}
 
-	if err := os.WriteFile(idx.path, data, 0644); err != nil {
-		return fmt.Errorf("write index: %w", err)
+	tmpPath := idx.path + ".tmp"
+	f, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		return fmt.Errorf("create temp index: %w", err)
 	}
+	defer func() {
+		f.Close()
+		os.Remove(tmpPath)
+	}()
+
+	if _, err := f.Write(data); err != nil {
+		return fmt.Errorf("write temp index: %w", err)
+	}
+	if err := f.Sync(); err != nil {
+		return fmt.Errorf("sync temp index: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("close temp index: %w", err)
+	}
+
+	if err := os.Rename(tmpPath, idx.path); err != nil {
+		return fmt.Errorf("rename index: %w", err)
+	}
+
 	idx.dirty = false
 	return nil
 }
