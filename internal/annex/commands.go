@@ -111,3 +111,13 @@ func GC(args []string) error {
 	defer g.Close()
 	return g.GC(args)
 }
+
+// Fsck scans and repairs the working tree.
+func Fsck(args []string) error {
+	g, err := Open(".")
+	if err != nil {
+		return fmt.Errorf("open: %w", err)
+	}
+	defer g.Close()
+	return g.Fsck(args)
+}

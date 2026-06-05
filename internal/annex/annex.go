@@ -130,6 +130,7 @@ func (g *GDA) Add(paths []string) error {
 }
 
 // Status shows the current state of tracked files.
+// Checks both the working tree (missing/broken symlinks) and the store.
 func (g *GDA) Status(paths []string) error {
 	entries := g.Index.All()
 
@@ -138,23 +139,60 @@ func (g *GDA) Status(paths []string) error {
 		return nil
 	}
 
+	rootAbs, err := filepath.Abs(g.Root)
+	if err != nil {
+		return fmt.Errorf("abs root: %w", err)
+	}
+
 	var totalSize int64
+	var failCount int
 	fmt.Println("Tracked files:")
 	for path, entry := range entries {
 		if len(paths) > 0 && !contains(paths, path) {
 			continue
 		}
-		status := "ok"
-		if !g.Store.Exists(entry.Key) {
-			status = "missing"
-		} else if ok, _ := g.Store.Verify(entry.Key); !ok {
-			status = "corrupt"
+
+		status := g.fileStatus(rootAbs, path, entry.Key)
+		if status != "ok" {
+			failCount++
 		}
 		fmt.Printf("  %s  %s  %s\n", status, formatSize(entry.Size), path)
 		totalSize += entry.Size
 	}
-	fmt.Printf("\n%d files, %s total\n", len(entries), formatSize(totalSize))
+
+	fmt.Printf("\n%d files, %s total", len(entries), formatSize(totalSize))
+	if failCount > 0 {
+		fmt.Printf(", %d with issues", failCount)
+	}
+	fmt.Println()
 	return nil
+}
+
+// fileStatus checks the working-tree and store health of a tracked file.
+func (g *GDA) fileStatus(rootAbs, path, key string) string {
+	abs := filepath.Join(rootAbs, path)
+
+	// Check working tree
+	fi, err := os.Lstat(abs)
+	if os.IsNotExist(err) {
+		return "missing"
+	}
+	if fi.Mode()&os.ModeSymlink == 0 {
+		return "modified"
+	}
+	// Symlink exists — does it resolve?
+	if _, err := os.Stat(abs); err != nil {
+		return "broken"
+	}
+
+	// Symlink resolves — check store
+	if !g.Store.Exists(key) {
+		return "missing"
+	}
+	if ok, _ := g.Store.Verify(key); !ok {
+		return "corrupt"
+	}
+	return "ok"
 }
 
 // Move renames a tracked file or directory prefix in the index.
@@ -505,6 +543,94 @@ func (g *GDA) GC(args []string) error {
 			removed, formatSize(removedSize), kept)
 	}
 	return nil
+}
+
+// Fsck scans the index against the working tree and repairs what it can.
+func (g *GDA) Fsck(args []string) error {
+	rootAbs, err := filepath.Abs(g.Root)
+	if err != nil {
+		return fmt.Errorf("abs root: %w", err)
+	}
+
+	entries := g.Index.All()
+	if len(entries) == 0 {
+		fmt.Println("No tracked files.")
+		return nil
+	}
+
+	var okCount, brokenCount, fixedCount, modifiedCount, missingCount int
+
+	for path, entry := range entries {
+		abs := filepath.Join(rootAbs, path)
+
+		fi, lerr := os.Lstat(abs)
+		if os.IsNotExist(lerr) {
+			if g.Store.Exists(entry.Key) {
+				if g.repairSymlink(abs, entry.Key) {
+					fixedCount++
+					fmt.Printf("  fixed    %s\n", path)
+				} else {
+					missingCount++
+					fmt.Printf("  missing  %s (object exists but repair failed)\n", path)
+				}
+			} else {
+				missingCount++
+				fmt.Printf("  missing  %s (object also missing)\n", path)
+			}
+			continue
+		}
+
+		if fi.Mode()&os.ModeSymlink == 0 {
+			modifiedCount++
+			fmt.Printf("  modified %s\n", path)
+			continue
+		}
+
+		// Symlink exists — verify it resolves
+		_, serr := os.Stat(abs)
+		if serr != nil {
+			if !g.Store.Exists(entry.Key) {
+				brokenCount++
+				fmt.Printf("  broken   %s (object missing)\n", path)
+				continue
+			}
+			if g.repairSymlink(abs, entry.Key) {
+				fixedCount++
+				fmt.Printf("  fixed    %s\n", path)
+			} else {
+				brokenCount++
+				fmt.Printf("  broken   %s (repair failed)\n", path)
+			}
+			continue
+		}
+
+		okCount++
+	}
+
+	fmt.Printf("\n%d ok, %d broken, %d fixed, %d modified, %d missing\n",
+		okCount, brokenCount, fixedCount, modifiedCount, missingCount)
+	return nil
+}
+
+// repairSymlink recreates a symlink at abs pointing to the stored object for key.
+// Returns true on success, false on failure. Does not touch the index.
+func (g *GDA) repairSymlink(abs string, key string) bool {
+	objAbs, err := filepath.Abs(g.Store.ObjectPath(key))
+	if err != nil {
+		return false
+	}
+	newRel, err := filepath.Rel(filepath.Dir(abs), objAbs)
+	if err != nil {
+		return false
+	}
+	if err := os.MkdirAll(filepath.Dir(abs), 0755); err != nil {
+		return false
+	}
+	os.Remove(abs)
+	if err := os.Symlink(newRel, abs); err != nil {
+		return false
+	}
+	return true
 }
 
 func sumSizes(entries map[string]*index.Entry) int64 {
