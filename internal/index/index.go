@@ -5,147 +5,143 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
+
+	bolt "go.etcd.io/bbolt"
 )
 
-// Entry represents a single tracked file.
 type Entry struct {
 	Path      string `json:"path"`
 	Key       string `json:"key"`
 	Size      int64  `json:"size,omitempty"`
-	MTime     int64  `json:"mtime,omitempty"` // unix timestamp
+	MTime     int64  `json:"mtime,omitempty"`
 	AddedTime int64  `json:"added_at,omitempty"`
 }
 
-// Index maintains the path → object key mapping.
 type Index struct {
-	mu     sync.RWMutex
-	path   string
-	ByPath map[string]*Entry `json:"by_path"`
-	dirty  bool
+	db   *bolt.DB
+	path string
 }
 
-// Open loads the index from disk, or creates a new one.
 func Open(root string) (*Index, error) {
-	path := filepath.Join(root, ".gda", "index.json")
-	idx := &Index{
-		path:   path,
-		ByPath: make(map[string]*Entry),
-	}
+	dbPath := filepath.Join(root, ".gda", "index.db")
+	jsonPath := filepath.Join(root, ".gda", "index.json")
 
-	data, err := os.ReadFile(path)
+	db, err := bolt.Open(dbPath, 0600, nil)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return idx, nil
-		}
-		return nil, fmt.Errorf("read index: %w", err)
+		return nil, fmt.Errorf("open db: %w", err)
 	}
 
-	if err := json.Unmarshal(data, idx); err != nil {
-		return nil, fmt.Errorf("parse index: %w", err)
+	err = db.Update(func(tx *bolt.Tx) error {
+		_, err := tx.CreateBucketIfNotExists([]byte("files"))
+		return err
+	})
+	if err != nil {
+		db.Close()
+		return nil, err
 	}
+
+	idx := &Index{db: db, path: dbPath}
+
+	if _, err := os.Stat(jsonPath); err == nil {
+		var count int
+		db.View(func(tx *bolt.Tx) error {
+			b := tx.Bucket([]byte("files"))
+			if b != nil {
+				count = b.Stats().KeyN
+			}
+			return nil
+		})
+		if count == 0 {
+			data, err := os.ReadFile(jsonPath)
+			if err == nil {
+				var old struct {
+					ByPath map[string]*Entry `json:"by_path"`
+				}
+				if json.Unmarshal(data, &old) == nil {
+					db.Update(func(tx *bolt.Tx) error {
+						b := tx.Bucket([]byte("files"))
+						for path, entry := range old.ByPath {
+							v, _ := json.Marshal(entry)
+							b.Put([]byte(path), v)
+						}
+						return nil
+					})
+				}
+			}
+			os.Remove(jsonPath)
+		}
+	}
+
 	return idx, nil
 }
 
-// Set adds or updates an entry in the index.
 func (idx *Index) Set(path, key string, size, mtime int64) {
-	idx.mu.Lock()
-	defer idx.mu.Unlock()
-	idx.ByPath[path] = &Entry{
+	entry := &Entry{
 		Path:      path,
 		Key:       key,
 		Size:      size,
 		MTime:     mtime,
 		AddedTime: time.Now().Unix(),
 	}
-	idx.dirty = true
+	value, _ := json.Marshal(entry)
+	idx.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("files"))
+		return b.Put([]byte(path), value)
+	})
 }
 
-// Remove deletes an entry from the index.
 func (idx *Index) Remove(path string) {
-	idx.mu.Lock()
-	defer idx.mu.Unlock()
-	delete(idx.ByPath, path)
-	idx.dirty = true
+	idx.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("files"))
+		return b.Delete([]byte(path))
+	})
 }
 
-// Get returns the entry for a path, or nil if not found.
 func (idx *Index) Get(path string) *Entry {
-	idx.mu.RLock()
-	defer idx.mu.RUnlock()
-	return idx.ByPath[path]
-}
-
-// All returns all entries.
-func (idx *Index) All() map[string]*Entry {
-	idx.mu.RLock()
-	defer idx.mu.RUnlock()
-	cp := make(map[string]*Entry, len(idx.ByPath))
-	for k, v := range idx.ByPath {
-		cp[k] = v
-	}
-	return cp
-}
-
-// Count returns the number of tracked entries.
-func (idx *Index) Count() int {
-	idx.mu.RLock()
-	defer idx.mu.RUnlock()
-	return len(idx.ByPath)
-}
-
-// Save writes the index to disk if dirty.
-func (idx *Index) Save() error {
-	idx.mu.RLock()
-	if !idx.dirty {
-		idx.mu.RUnlock()
+	var entry *Entry
+	idx.db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("files"))
+		v := b.Get([]byte(path))
+		if v != nil {
+			entry = new(Entry)
+			json.Unmarshal(v, entry)
+		}
 		return nil
-	}
-	idx.mu.RUnlock()
+	})
+	return entry
+}
 
-	idx.mu.Lock()
-	defer idx.mu.Unlock()
+func (idx *Index) All() map[string]*Entry {
+	result := make(map[string]*Entry)
+	idx.db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("files"))
+		c := b.Cursor()
+		for k, v := c.First(); k != nil; k, v = c.Next() {
+			var entry Entry
+			if json.Unmarshal(v, &entry) == nil {
+				result[string(k)] = &entry
+			}
+		}
+		return nil
+	})
+	return result
+}
 
-	data, err := json.MarshalIndent(idx, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal index: %w", err)
-	}
+func (idx *Index) Count() int {
+	var count int
+	idx.db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("files"))
+		count = b.Stats().KeyN
+		return nil
+	})
+	return count
+}
 
-	dir := filepath.Dir(idx.path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("create index dir: %w", err)
-	}
-
-	tmpPath := idx.path + ".tmp"
-	f, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
-	if err != nil {
-		return fmt.Errorf("create temp index: %w", err)
-	}
-	defer func() {
-		f.Close()
-		os.Remove(tmpPath)
-	}()
-
-	if _, err := f.Write(data); err != nil {
-		return fmt.Errorf("write temp index: %w", err)
-	}
-	if err := f.Sync(); err != nil {
-		return fmt.Errorf("sync temp index: %w", err)
-	}
-	if err := f.Close(); err != nil {
-		return fmt.Errorf("close temp index: %w", err)
-	}
-
-	if err := os.Rename(tmpPath, idx.path); err != nil {
-		return fmt.Errorf("rename index: %w", err)
-	}
-
-	idx.dirty = false
+func (idx *Index) Save() error {
 	return nil
 }
 
-// Close saves the index.
 func (idx *Index) Close() error {
-	return idx.Save()
+	return idx.db.Close()
 }
