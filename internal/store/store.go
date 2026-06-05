@@ -114,3 +114,44 @@ func (s *Store) Exists(key string) bool {
 	_, err := os.Stat(s.objectPath(key))
 	return err == nil
 }
+
+// CopyTo materializes object content to a working-tree path.
+func (s *Store) CopyTo(key, dest string) error {
+	srcPath := s.objectPath(key)
+	src, err := os.Open(srcPath)
+	if err != nil {
+		return fmt.Errorf("open source object %s: %w", key, err)
+	}
+	defer src.Close()
+
+	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+		return fmt.Errorf("create dest dir: %w", err)
+	}
+
+	dst, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("create dest file: %w", err)
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, src); err != nil {
+		return fmt.Errorf("copy content: %w", err)
+	}
+
+	return nil
+}
+
+// VerifyAtPath checks if the content at a given path matches the key.
+func (s *Store) VerifyAtPath(key, path string) (bool, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return false, err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return false, err
+	}
+	return fmt.Sprintf("%x", h.Sum(nil)) == key, nil
+}
+

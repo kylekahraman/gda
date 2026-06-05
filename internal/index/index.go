@@ -16,6 +16,7 @@ type Entry struct {
 	Size      int64  `json:"size,omitempty"`
 	MTime     int64  `json:"mtime,omitempty"`
 	AddedTime int64  `json:"added_at,omitempty"`
+	Unlocked  bool   `json:"unlocked,omitempty"`
 }
 
 type Index struct {
@@ -95,6 +96,14 @@ func (idx *Index) Remove(path string) {
 	idx.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("files"))
 		return b.Delete([]byte(path))
+	})
+}
+
+func (idx *Index) Put(entry *Entry) {
+	value, _ := json.Marshal(entry)
+	idx.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("files"))
+		return b.Put([]byte(entry.Path), value)
 	})
 }
 

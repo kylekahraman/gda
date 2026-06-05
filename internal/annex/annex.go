@@ -152,8 +152,8 @@ func (g *GDA) Status(paths []string) error {
 			continue
 		}
 
-		status := g.fileStatus(rootAbs, path, entry.Key)
-		if status != "ok" {
+		status := g.fileStatus(rootAbs, path, entry.Key, entry)
+		if status != "ok" && status != "unlocked" {
 			failCount++
 		}
 		fmt.Printf("  %s  %s  %s\n", status, formatSize(entry.Size), path)
@@ -169,7 +169,7 @@ func (g *GDA) Status(paths []string) error {
 }
 
 // fileStatus checks the working-tree and store health of a tracked file.
-func (g *GDA) fileStatus(rootAbs, path, key string) string {
+func (g *GDA) fileStatus(rootAbs, path, key string, entry *index.Entry) string {
 	abs := filepath.Join(rootAbs, path)
 
 	// Check working tree
@@ -178,8 +178,17 @@ func (g *GDA) fileStatus(rootAbs, path, key string) string {
 		return "missing"
 	}
 	if fi.Mode()&os.ModeSymlink == 0 {
+		// Regular file (or other non-symlink)
+		if entry != nil && entry.Unlocked {
+			// Check if content matches stored key
+			if ok, _ := g.Store.VerifyAtPath(key, abs); ok {
+				return "unlocked"
+			}
+			return "modified"
+		}
 		return "modified"
 	}
+
 	// Symlink exists — does it resolve?
 	if _, err := os.Stat(abs); err != nil {
 		return "broken"
@@ -422,16 +431,32 @@ func (g *GDA) Checkout(args []string) error {
 
 	// Identify and remove files tracked in current index but NOT present in snapshot
 	currentIndex := g.Index.All()
-	for path := range currentIndex {
+	for path, entry := range currentIndex {
 		if _, exists := snap.Entries[path]; !exists {
 			abs := filepath.Join(rootAbs, path)
-			os.Remove(abs) // Remove symlink, best-effort
+			if entry.Unlocked {
+				if ok, _ := g.Store.VerifyAtPath(entry.Key, abs); !ok {
+					fmt.Printf("warning: file is unlocked with modifications, skipping: %s\n", path)
+					continue
+				}
+			}
+			os.Remove(abs) // Remove symlink/file, best-effort
 			g.Index.Remove(path)
 		}
 	}
 
 	for path, entry := range snap.Entries {
 		abs := filepath.Join(rootAbs, path)
+
+		// Check if current file is unlocked and has modifications
+		currentEntry := g.Index.Get(path)
+		if currentEntry != nil && currentEntry.Unlocked {
+			if ok, _ := g.Store.VerifyAtPath(currentEntry.Key, abs); !ok {
+				fmt.Printf("warning: file is unlocked with modifications, skipping: %s\n", path)
+				continue
+			}
+		}
+
 		if err := os.MkdirAll(filepath.Dir(abs), 0755); err != nil {
 			return fmt.Errorf("create dir for %s: %w", path, err)
 		}
@@ -562,11 +587,27 @@ func (g *GDA) Fsck(args []string) error {
 
 	for path, entry := range entries {
 		abs := filepath.Join(rootAbs, path)
+		status := g.fileStatus(rootAbs, path, entry.Key, entry)
 
-		fi, lerr := os.Lstat(abs)
-		if os.IsNotExist(lerr) {
+		switch status {
+		case "ok", "unlocked":
+			okCount++
+		case "modified":
+			modifiedCount++
+			fmt.Printf("  modified %s\n", path)
+		case "corrupt":
+			brokenCount++
+			fmt.Printf("  corrupt  %s (object content mismatch)\n", path)
+		case "missing":
 			if g.Store.Exists(entry.Key) {
-				if g.repairSymlink(abs, entry.Key) {
+				repaired := false
+				if entry.Unlocked {
+					os.Remove(abs)
+					repaired = g.Store.CopyTo(entry.Key, abs) == nil
+				} else {
+					repaired = g.repairSymlink(abs, entry.Key)
+				}
+				if repaired {
 					fixedCount++
 					fmt.Printf("  fixed    %s\n", path)
 				} else {
@@ -577,34 +618,27 @@ func (g *GDA) Fsck(args []string) error {
 				missingCount++
 				fmt.Printf("  missing  %s (object also missing)\n", path)
 			}
-			continue
-		}
-
-		if fi.Mode()&os.ModeSymlink == 0 {
-			modifiedCount++
-			fmt.Printf("  modified %s\n", path)
-			continue
-		}
-
-		// Symlink exists — verify it resolves
-		_, serr := os.Stat(abs)
-		if serr != nil {
+		case "broken":
 			if !g.Store.Exists(entry.Key) {
 				brokenCount++
 				fmt.Printf("  broken   %s (object missing)\n", path)
-				continue
-			}
-			if g.repairSymlink(abs, entry.Key) {
-				fixedCount++
-				fmt.Printf("  fixed    %s\n", path)
 			} else {
-				brokenCount++
-				fmt.Printf("  broken   %s (repair failed)\n", path)
+				repaired := false
+				if entry.Unlocked {
+					os.Remove(abs)
+					repaired = g.Store.CopyTo(entry.Key, abs) == nil
+				} else {
+					repaired = g.repairSymlink(abs, entry.Key)
+				}
+				if repaired {
+					fixedCount++
+					fmt.Printf("  fixed    %s\n", path)
+				} else {
+					brokenCount++
+					fmt.Printf("  broken   %s (repair failed)\n", path)
+				}
 			}
-			continue
 		}
-
-		okCount++
 	}
 
 	fmt.Printf("\n%d ok, %d broken, %d fixed, %d modified, %d missing\n",
@@ -639,4 +673,158 @@ func sumSizes(entries map[string]*index.Entry) int64 {
 		total += e.Size
 	}
 	return total
+}
+
+// Unlock replaces symlinks with writable copies of the content.
+func (g *GDA) Unlock(paths []string) error {
+	if len(paths) == 0 {
+		return fmt.Errorf("no files specified to unlock")
+	}
+
+	rootAbs, err := filepath.Abs(g.Root)
+	if err != nil {
+		return fmt.Errorf("abs root: %w", err)
+	}
+
+	for _, path := range paths {
+		absPath, err := filepath.Abs(path)
+		if err != nil {
+			return fmt.Errorf("abs %s: %w", path, err)
+		}
+		relPath, err := filepath.Rel(rootAbs, absPath)
+		if err != nil {
+			return fmt.Errorf("rel %s: %w", path, err)
+		}
+
+		entry := g.Index.Get(relPath)
+		if entry == nil {
+			return fmt.Errorf("%s is not tracked", relPath)
+		}
+
+		if entry.Unlocked {
+			fmt.Printf("%s is already unlocked\n", relPath)
+			continue
+		}
+
+		fi, err := os.Lstat(absPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return fmt.Errorf("file not found: %s", relPath)
+			}
+			return fmt.Errorf("stat %s: %w", relPath, err)
+		}
+
+		if fi.IsDir() {
+			return fmt.Errorf("%s is a directory, cannot unlock", relPath)
+		}
+
+		if fi.Mode()&os.ModeSymlink == 0 {
+			fmt.Printf("warning: %s is modified, not a symlink, skipping\n", relPath)
+			continue
+		}
+
+		if !g.Store.Exists(entry.Key) {
+			return fmt.Errorf("object not found for %s, run gda add first", relPath)
+		}
+
+		objPath := g.Store.ObjectPath(entry.Key)
+		content, err := os.ReadFile(objPath)
+		if err != nil {
+			return fmt.Errorf("read object %s: %w", entry.Key, err)
+		}
+
+		if err := os.Remove(absPath); err != nil {
+			return fmt.Errorf("remove symlink %s: %w", relPath, err)
+		}
+
+		if err := os.WriteFile(absPath, content, 0644); err != nil {
+			return fmt.Errorf("write file %s: %w", relPath, err)
+		}
+
+		entry.Unlocked = true
+		g.Index.Put(entry)
+
+		fmt.Printf("Unlocked %s\n", relPath)
+	}
+
+	return g.Index.Save()
+}
+
+// Lock re-hashes the file, stores it if changed, and replaces it with a symlink.
+func (g *GDA) Lock(paths []string) error {
+	if len(paths) == 0 {
+		return fmt.Errorf("no files specified to lock")
+	}
+
+	rootAbs, err := filepath.Abs(g.Root)
+	if err != nil {
+		return fmt.Errorf("abs root: %w", err)
+	}
+
+	for _, path := range paths {
+		absPath, err := filepath.Abs(path)
+		if err != nil {
+			return fmt.Errorf("abs %s: %w", path, err)
+		}
+		relPath, err := filepath.Rel(rootAbs, absPath)
+		if err != nil {
+			return fmt.Errorf("rel %s: %w", path, err)
+		}
+
+		entry := g.Index.Get(relPath)
+		if entry == nil {
+			return fmt.Errorf("%s is not tracked", relPath)
+		}
+
+		if !entry.Unlocked {
+			fmt.Printf("%s is already locked\n", relPath)
+			continue
+		}
+
+		fi, err := os.Lstat(absPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return fmt.Errorf("file not found: %s", relPath)
+			}
+			return fmt.Errorf("stat %s: %w", relPath, err)
+		}
+
+		if fi.Mode()&os.ModeSymlink != 0 {
+			fmt.Printf("warning: %s is a symlink, already locked, skipping\n", relPath)
+			continue
+		}
+
+		newKey, err := g.Store.Add(absPath)
+		if err != nil {
+			return fmt.Errorf("lock store add %s: %w", relPath, err)
+		}
+
+		fiFinal, err := os.Lstat(absPath)
+		if err != nil {
+			return fmt.Errorf("stat final %s: %w", relPath, err)
+		}
+
+		entry.Key = newKey
+		entry.Size = fiFinal.Size()
+		entry.MTime = fiFinal.ModTime().Unix()
+		entry.Unlocked = false
+		g.Index.Put(entry)
+
+		objAbs := filepath.Join(rootAbs, ".gda", "objects", newKey[:2], newKey[2:])
+		rel, err := filepath.Rel(filepath.Dir(absPath), objAbs)
+		if err != nil {
+			return fmt.Errorf("rel path: %w", err)
+		}
+
+		if err := os.Remove(absPath); err != nil {
+			return fmt.Errorf("remove original %s: %w", relPath, err)
+		}
+		if err := os.Symlink(rel, absPath); err != nil {
+			return fmt.Errorf("create symlink %s: %w", relPath, err)
+		}
+
+		fmt.Printf("Locked %s\n", relPath)
+	}
+
+	return g.Index.Save()
 }

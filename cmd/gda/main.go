@@ -10,7 +10,7 @@ import (
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Fprintf(os.Stderr, "Usage: gda <command> [args...]\n")
-		fmt.Fprintf(os.Stderr, "Commands: init, add, status, mv, rm, snapshot, log, checkout, gc, fsck\n")
+		fmt.Fprintf(os.Stderr, "Commands: init, add, status, mv, rm, snapshot, log, checkout, gc, fsck, unlock, lock\n")
 		os.Exit(1)
 	}
 
@@ -39,6 +39,10 @@ func main() {
 		err = annex.GC(args)
 	case "fsck":
 		err = annex.Fsck(args)
+	case "unlock":
+		err = annex.Unlock(args)
+	case "lock":
+		err = annex.Lock(args)
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", cmd)
 		os.Exit(1)

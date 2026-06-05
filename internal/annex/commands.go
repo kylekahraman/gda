@@ -121,3 +121,29 @@ func Fsck(args []string) error {
 	defer g.Close()
 	return g.Fsck(args)
 }
+
+// Unlock unlocks the given tracked files.
+func Unlock(args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("usage: gda unlock <file> [file...]")
+	}
+	g, err := Open(".")
+	if err != nil {
+		return fmt.Errorf("open: %w", err)
+	}
+	defer g.Close()
+	return g.Unlock(args)
+}
+
+// Lock locks the given tracked files.
+func Lock(args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("usage: gda lock <file> [file...]")
+	}
+	g, err := Open(".")
+	if err != nil {
+		return fmt.Errorf("open: %w", err)
+	}
+	defer g.Close()
+	return g.Lock(args)
+}
