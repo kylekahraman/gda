@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/kylekahraman/gda/internal/annex"
+	"github.com/kylekahraman/gda/internal/devlog"
 )
 
 var helpText = map[string]string{
@@ -37,6 +39,23 @@ func usage() {
 	}
 }
 
+func runCmd(name string, args []string, fn func([]string) error) error {
+	if devlog.Enabled() {
+		devlog.Printf("CMD: gda %s %v", name, args)
+	}
+	start := time.Now()
+	err := fn(args)
+	elapsed := time.Since(start)
+	if devlog.Enabled() {
+		if err != nil {
+			devlog.Printf("ERROR: gda %s: %v (%v)", name, err, elapsed)
+		} else {
+			devlog.Printf("OK: gda %s (%v)", name, elapsed)
+		}
+	}
+	return err
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		usage()
@@ -62,35 +81,35 @@ func main() {
 	var err error
 	switch cmd {
 	case "init":
-		err = annex.Init(args)
+		err = runCmd("init", args, annex.Init)
 	case "add":
-		err = annex.Add(args)
+		err = runCmd("add", args, annex.Add)
 	case "status":
-		err = annex.Status(args)
+		err = runCmd("status", args, annex.Status)
 	case "mv":
-		err = annex.Move(args)
+		err = runCmd("mv", args, annex.Move)
 	case "rm":
-		err = annex.Remove(args)
+		err = runCmd("rm", args, annex.Remove)
 	case "snapshot":
-		err = annex.Snapshot(args)
+		err = runCmd("snapshot", args, annex.Snapshot)
 	case "log":
-		err = annex.Log(args)
+		err = runCmd("log", args, annex.Log)
 	case "checkout":
-		err = annex.Checkout(args)
+		err = runCmd("checkout", args, annex.Checkout)
 	case "gc":
-		err = annex.GC(args)
+		err = runCmd("gc", args, annex.GC)
 	case "fsck":
-		err = annex.Fsck(args)
+		err = runCmd("fsck", args, annex.Fsck)
 	case "unlock":
-		err = annex.Unlock(args)
+		err = runCmd("unlock", args, annex.Unlock)
 	case "lock":
-		err = annex.Lock(args)
+		err = runCmd("lock", args, annex.Lock)
 	case "remote":
-		err = annex.Remote(args)
+		err = runCmd("remote", args, annex.Remote)
 	case "push":
-		err = annex.Push(args)
+		err = runCmd("push", args, annex.Push)
 	case "pull":
-		err = annex.Pull(args)
+		err = runCmd("pull", args, annex.Pull)
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", cmd)
 		os.Exit(1)
