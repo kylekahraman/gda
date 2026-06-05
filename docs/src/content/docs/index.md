@@ -3,7 +3,7 @@ title: GDA — Data Versioning for Research
 description: Version control for research datasets — one command, no git
 ---
 
-> ⚠️ Pre-alpha (v0.0.1): single-user only. Designed for individual researchers who want to version, restore, and share datasets. Not for collaborative real-time editing.
+> ⚠️ Pre-alpha (v0.0.1). Designed for individual researchers who want to version, restore, and share datasets. Sharing via push/pull works today. Simultaneous editing is not supported.
 
 GDA versions research datasets. No git required. You download data, add it,
 snapshot when you've done something useful, checkout when you mess up, and

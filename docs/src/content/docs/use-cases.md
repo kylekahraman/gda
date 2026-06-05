@@ -63,5 +63,5 @@ snapshots and get exactly the same file tree you have.
 
 **GDA is not for you if:**
 - You only work alone on small files (< 1 GB) and never share data
-- You need concurrent multi-user editing (not yet supported)
+- You need two people editing the same dataset at the same time (not yet supported)
 - You need S3 or HTTP remotes (rsync only for now)

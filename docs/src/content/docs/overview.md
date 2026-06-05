@@ -3,7 +3,7 @@ title: Overview
 description: What GDA is and why it exists
 ---
 
-> ⚠️ Pre-alpha: single-user only. Designed for individual researchers who want to version, restore, and share datasets. Not for real-time collaborative editing.
+> ⚠️ Pre-alpha (v0.0.1). Designed for individual researchers who want to version, restore, and share datasets. Sharing via push/pull works today. Simultaneous editing is not supported.
 
 ## The Problem
 
@@ -33,11 +33,13 @@ gda push origin             # Sync to remote storage
 
 ## Why It's Different
 
-### No merge conflicts (because there's nothing to merge)
+### No merge conflicts (because there's no merging)
 
-GDA is single-user. You work alone on your data. No branches. No parallel edits. When you `checkout`, GDA replaces your entire project folder — there's nothing to merge.
+GDA has no branches. You work on one dataset state at a time. When you `checkout`, GDA replaces your entire project folder — there's nothing to merge.
 
-This is intentional. Research data doesn't benefit from merge conflict resolution. You don't want to manually resolve a conflict in a 10 GB NIfTI file. You want to snapshot before a risky preprocessing step and checkout if it goes wrong.
+This is intentional for researchers working alone: you don't want to resolve a conflict in a 10 GB NIfTI file. Snapshot before a risky step, checkout if it goes wrong.
+
+If you need parallel dataset versions (e.g. different preprocessing streams), that's branches — planned but not yet implemented.
 
 ### No git required
 
@@ -61,7 +63,7 @@ Stored files are read-only and named by their fingerprint. `gda fsck` verifies e
 - Git-annex made you want to throw your laptop off a roof
 
 **Not a good fit (yet):**
-- You need multiple people editing the same dataset simultaneously (planned)
+- You need two people editing the same dataset at the same time (branches/merging planned)
 - You need S3 or HTTP remotes (rsync only for now)
 - You need Windows support (planned)
 
@@ -70,13 +72,13 @@ Stored files are read-only and named by their fingerprint. `gda fsck` verifies e
 | | GDA | git-annex | DVC | Git LFS |
 |---|---|---|---|---|
 | No git needed | ✓ | ✗ | ✗ | ✗ |
-| Single-user (conflict-free) | ✓ | ✗ | ✗ | ✗ |
-| Multi-user | ✗ planned | ✓ limited | ✓ | ✓ |
+| Conflict-free (no branches) | ✓ | ✗ | ✗ | ✗ |
+| Concurrent editing | ✗ | ∼ limited | ✓ | ✓ |
 | Deduplicates identical files | ✓ | ✓ | ✓ | ✓ |
 | Symlink file listing | ✓ | ✓ | ✗ | ✓ |
-| Remote types | rsync | S3, rsync, many | S3, GCS | S3, GH |
+| Remote sync method | rsync | S3, rsync, many | S3, GCS | S3, GH |
 
-**Why no merge conflicts?** GDA is designed for one person working alone. You snapshot, you checkout. No branches, no parallel edits, no conflict resolution screen. If you want to combine two snapshots, that's not supported yet — it would require a merge feature (planned).
+**Why no concurrent editing?** GDA has no branches and no merge mechanism. It's designed for one working tree at a time — perfect for a single researcher or for sharing data where only one person modifies at a time. If you need two people editing the same dataset simultaneously, this isn't ready for that yet. Branches and merging are planned.
 
 → [Installation](/gda/installation/) — get GDA on your machine
 → [Quick Start](/gda/quick-start/) — track your first dataset in 5 minutes

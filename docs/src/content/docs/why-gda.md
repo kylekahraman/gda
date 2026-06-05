@@ -16,7 +16,7 @@ It's powerful but it's a beast. Adjusted branches, direct mode, special remotes,
 
 ## Bad fit
 
-- You need multi-user concurrent editing (not yet — planned)
+- You need two people editing the same dataset at the same time (not yet — planned)
 - You need S3/HTTP remotes right now (rsync only for now)
 - You're on Windows (not supported yet)
 - You need git integration — GDA is standalone by design
