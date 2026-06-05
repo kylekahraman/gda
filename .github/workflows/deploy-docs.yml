@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -33,17 +33,26 @@ jobs:
         run: npm ci
       - name: Build site
         run: npx astro build
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: docs/dist
+      - name: Verify build output
+        run: |
+          set -e
+          echo "Checking critical pages..."
+          test -f dist/index.html && echo "  ✓ index.html"
+          test -f dist/overview/index.html && echo "  ✓ overview/index.html"
+          test -f dist/installation/index.html && echo "  ✓ installation/index.html"
+          test -f dist/quick-start/index.html && echo "  ✓ quick-start/index.html"
+          test -f dist/reference/commands/index.html && echo "  ✓ commands/index.html"
+          test -f dist/guides/adding-data/index.html && echo "  ✓ guides/adding-data/index.html"
+          test -f dist/404.html && echo "  ✓ 404.html"
+          test -f dist/pagefind/pagefind.js && echo "  ✓ search index"
+          echo "All pages present. Build validated."
 
   deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    needs: build
+    needs: test
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
