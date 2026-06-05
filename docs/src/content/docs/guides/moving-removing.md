@@ -9,7 +9,7 @@ description: Rename or untrack files in a GDA repository
 gda mv sub-01/meg/run.fif sub-01/meg/run-01.fif
 ```
 
-This renames the symlink in the working tree and updates the index. The object in the store stays unchanged (the hash is the same).
+GDA renames the symlink in your project folder and updates the index. The object in the store stays unchanged (the hash is the same).
 
 ## Moving Directories
 
@@ -35,7 +35,7 @@ gda rm sub-01/meg/run.fif
 gda rm sub-02/beh/sub-02_beh.tsv
 ```
 
-Removes the symlink from the working tree and removes the entry from the index. The object **remains in the store** — other snapshots may still reference it.
+Removes the symlink from your project folder and removes the index entry. The object **remains in the store** — other snapshots may still reference it.
 
 ## Garbage Collection
 

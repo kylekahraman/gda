@@ -19,9 +19,9 @@ description: How GDA stores data on disk
 
 ## Object Storage
 
-- Objects are stored at `.gda/objects/XX/YYY...` where `XX` is the first 2 hex chars of the SHA256 hash and `YYY...` is the remaining 62 chars
+- Objects are named by the SHA256 hash OF their content — the filename is a fingerprint, not the data itself
 - Objects are read-only (0444 permissions)
-- Each object is a single file whose content matches its name (verified by `gda fsck`)
+- An object's content, when hashed, always produces the filename — this is how `gda fsck` verifies integrity
 
 ## Index
 

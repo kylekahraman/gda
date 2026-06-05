@@ -3,9 +3,7 @@ title: How GDA Works
 description: Architecture and core concepts
 ---
 
-Most tools identify files by where they live (file path). GDA identifies files by **what's inside them** (their hash). This one change makes deduplication, integrity checking, and instant rename possible.
-
-Think of it like a fingerprint: every file gets a unique fingerprint based on its content. Two files with the same content have the same fingerprint — GDA stores them once. Change one byte, and the fingerprint changes — GDA treats it as a different file.
+Most tools identify files by where they live (file path). GDA identifies files by a cryptographic fingerprint (SHA256 hash) computed FROM their content. Two files with identical content have identical fingerprints — GDA stores them once. Change one byte, and the fingerprint changes — GDA treats it as a different file.
 
 ## Core Concepts
 
@@ -24,12 +22,12 @@ Original files:               Object store:
   sub-02/data.nii.gz  ──→    (same object, because same hash → deduplicated)
 ```
 
-### Symlink working tree
+### Symlink-based file listing
 
 After adding, the original file is replaced with a **relative symlink** to the object. This means:
 - You can browse and open files normally (no special tools needed)
 - Renaming or restructuring only changes the symlink (instant, no data copy)
-- The working tree is always navigable
+- Your project folder always shows real files, not hashes
 
 ```shell
 $ ls -l sub-01/meg/
@@ -51,7 +49,7 @@ Snapshot "raw-v1"
 └── sub-02/meg/run.fif     → 9a8b7c6d5e4f...
 ```
 
-Restoring a snapshot rebuilds the working tree by creating symlinks for every entry.
+Restoring a snapshot recreates your project folder by placing symlinks for every entry.
 
 ## Data Flow
 

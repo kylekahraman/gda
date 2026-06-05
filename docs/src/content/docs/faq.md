@@ -7,7 +7,7 @@ description: Common questions and solutions
 
 ### How is GDA different from git-annex?
 
-Git-annex is powerful but incredibly complex. It hooks into git internals, uses multiple branches (master, synced/master, adjusted branches), and has a brutal learning curve. GDA is a standalone tool with no git dependency. No adjusted branches, no merge conflicts, no special index. One working tree, one command per operation.
+Git-annex is powerful but incredibly complex. It hooks into git internals, uses multiple branches (master, synced/master, adjusted branches), and has a brutal learning curve. GDA is a standalone tool with no git dependency. No adjusted branches, no merge conflicts, no special index. One command per operation.
 
 ### How is GDA different from DVC?
 
@@ -29,7 +29,7 @@ Yes. GDA stores everything in `.gda/`. You can have a git repo in the same direc
 
 ### Where is my data stored?
 
-In `.gda/objects/XX/YYY...` where `XX` is the first 2 characters of the SHA256 hash and `YYY...` is the rest. Files are read-only (0444 permissions) and identified by their content — the filename IS the hash.
+In `.gda/objects/XX/YYY...` where `XX` is the first 2 characters of the SHA256 hash and `YYY...` is the rest. Files are read-only (0444 permissions) and named by the hash OF their content — same content always produces the same name, so deduplication and integrity verification are automatic.
 
 ### Is data duplicated if I add the same file twice?
 
@@ -37,7 +37,7 @@ No. Identical content produces the same SHA256 hash. The second add finds the ex
 
 ### Can I recover deleted files?
 
-If the file is still referenced by a snapshot, use `gda checkout <snapshot>` to restore the working tree. If you removed the file from tracking (`gda rm`) and ran `gda gc`, the object may be deleted. Run `gda gc --dry-run` first to see what would be removed.
+If the file is still referenced by a snapshot, use `gda checkout <snapshot>` to restore the files. If you removed the file from tracking (`gda rm`) and ran `gda gc`, the object may be deleted. Run `gda gc --dry-run` first to see what would be removed.
 
 ## Snapshots
 

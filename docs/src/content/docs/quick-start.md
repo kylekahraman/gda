@@ -122,7 +122,7 @@ Tracked files:
   ok  39 B   sub-01/beh/data.csv
 ```
 
-Your working tree is back to exactly how it was after `raw-v1`. The data from `raw-v2` is still in the store — you can switch back any time.
+Your project folder is back to exactly how it was after `raw-v1`. The data from `raw-v2` is still in the store — you can switch back any time.
 
 ## What's next?
 

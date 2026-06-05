@@ -19,7 +19,7 @@ Objects younger than 1 hour are never removed. This grace period prevents race c
 
 ## Integrity Check
 
-Scan the entire index and verify working tree integrity:
+Scan your entire project and verify everything is intact:
 
 ```shell
 gda fsck

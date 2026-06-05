@@ -36,7 +36,7 @@ Output:
 gda checkout pre-processing-v2
 ```
 
-Restores the working tree to match the snapshot:
+Restores your project folder to match the snapshot:
 - Creates symlinks for every tracked file
 - Removes files tracked in the current index but absent in the snapshot
 - Warns about unlocked modified files without overwriting them

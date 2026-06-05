@@ -1,40 +1,26 @@
 ---
 title: GDA — Data Versioning for Research
-description: Version control for research datasets — without git-annex
+description: Version control for research datasets — one command, no git
 ---
+
+> ⚠️ Pre-alpha (v0.0.1): single-user only. Designed for individual researchers who want to version, restore, and share datasets. Not for collaborative real-time editing.
 
 GDA versions research datasets. No git required. You download data, add it,
 snapshot when you've done something useful, checkout when you mess up, and
 push to share with collaborators.
 
----
+## Who this is for
 
-## Getting Started
+- **You download datasets from OpenNeuro** and want to track preprocessing steps
+- **You share data with labmates** and want everyone on the same file tree
+- **You archive data** and want to know it's not silently corrupting
+- **You restructure files constantly** and hate waiting for copies
+- **Git-annex makes you angry**
 
-| Guide | What you'll learn |
-|---|---|
-| [Overview](/gda/overview/) | What GDA is and when it's useful |
-| [Installation](/gda/installation/) | Download or build GDA |
-| [Quick Start](/gda/quick-start/) | Track your first dataset in 5 minutes |
-
-## Guides
-
-| Guide | What you'll learn |
-|---|---|
-| [Adding Data](/gda/guides/adding-data/) | Track files and directories |
-| [Snapshots & Checkout](/gda/guides/snapshots/) | Version your dataset state |
-| [Moving & Removing](/gda/guides/moving-removing/) | Rename or untrack files |
-| [Unlock & Lock](/gda/guides/unlock-lock/) | Edit tracked files safely |
-| [Remote Storage](/gda/guides/remote-storage/) | Sync via rsync |
-| [Housekeeping](/gda/guides/housekeeping/) | GC and integrity checks |
-
-## Reference
-
-| Page | Description |
-|---|---|
-| [Commands](/gda/reference/commands/) | Complete command reference |
-| [Store Format](/gda/reference/store-format/) | How data is stored on disk |
-| [Configuration](/gda/reference/configuration/) | Environment variables and remotes |
+→ [Why GDA?](/gda/why-gda/) — honest comparison
+→ [Use Cases](/gda/use-cases/) — real workflows
+→ [Installation](/gda/installation/) — get it now
+→ [Quick Start](/gda/quick-start/) — 5 minute tutorial
 
 ---
 
@@ -49,4 +35,18 @@ gda snapshot experiment1
 gda checkout experiment1
 ```
 
-→ [Continue to Overview →](/gda/overview/)
+→ [Continue to Installation →](/gda/installation/)
+
+---
+
+## Documentation
+
+| Section | What's in it |
+|---|---|
+| [Overview](/gda/overview/) | What GDA does and why it's different |
+| [Installation](/gda/installation/) | Download or build GDA |
+| [Quick Start](/gda/quick-start/) | Track your first dataset in 5 minutes |
+| [Concepts](/gda/concepts/) | How hashing, symlinks, and snapshots work |
+| [Guides](/gda/guides/adding-data/) | Adding, snapshotting, syncing data |
+| [FAQ](/gda/faq/) | Common questions and troubleshooting |
+| [Commands](/gda/reference/commands/) | Full reference |

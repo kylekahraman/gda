@@ -37,7 +37,7 @@ gda add bids/ derivatives/
 
 ### `gda status [<path> ...]`
 
-Show tracked files and their working tree integrity.
+Show tracked files and whether they're intact.
 
 ```shell
 $ gda status
@@ -97,7 +97,7 @@ Most recent snapshot appears first.
 
 ### `gda checkout <snapshot-name>`
 
-Restore the working tree to a snapshot state.
+Restore your project folder to a snapshot state.
 
 ```shell
 $ gda checkout raw-v1
@@ -131,7 +131,7 @@ Objects younger than 1 hour are never removed (grace period prevents race condit
 
 ### `gda fsck`
 
-Scan the index and repair working tree issues.
+Scan your project and repair file integrity issues.
 
 ```shell
 $ gda fsck
