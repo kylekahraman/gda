@@ -13,7 +13,7 @@ func Init(args []string) error {
 	}
 
 	// Check if already initialized
-	if _, err := os.Stat(root + "/.gda"); err == nil {
+	if _, err := os.Stat(root + "/.gda/index.db"); err == nil {
 		return fmt.Errorf("already initialized (remove .gda/ to re-init)")
 	}
 
@@ -146,4 +146,93 @@ func Lock(args []string) error {
 	}
 	defer g.Close()
 	return g.Lock(args)
+}
+
+func Remote(args []string) error {
+	if len(args) == 0 {
+		g, err := Open(".")
+		if err != nil {
+			return fmt.Errorf("open: %w", err)
+		}
+		defer g.Close()
+		remotes, err := g.Index.RemoteList()
+		if err != nil {
+			return err
+		}
+		for _, r := range remotes {
+			fmt.Printf("%s\t%s\n", r.Name, r.URL)
+		}
+		return nil
+	}
+
+	subCmd := args[0]
+	switch subCmd {
+	case "add":
+		if len(args) < 3 {
+			return fmt.Errorf("usage: gda remote add <name> <url>")
+		}
+		g, err := Open(".")
+		if err != nil {
+			return fmt.Errorf("open: %w", err)
+		}
+		defer g.Close()
+		err = g.RemoteAdd(args[1], args[2])
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Added remote %s (%s)\n", args[1], args[2])
+		return nil
+	case "remove", "rm":
+		if len(args) < 2 {
+			return fmt.Errorf("usage: gda remote remove <name>")
+		}
+		g, err := Open(".")
+		if err != nil {
+			return fmt.Errorf("open: %w", err)
+		}
+		defer g.Close()
+		return g.Index.RemoteRemove(args[1])
+	case "list":
+		g, err := Open(".")
+		if err != nil {
+			return fmt.Errorf("open: %w", err)
+		}
+		defer g.Close()
+		remotes, err := g.Index.RemoteList()
+		if err != nil {
+			return err
+		}
+		for _, r := range remotes {
+			fmt.Printf("%s\t%s\n", r.Name, r.URL)
+		}
+		return nil
+	default:
+		return fmt.Errorf("unknown remote command: %s", subCmd)
+	}
+}
+
+func Push(args []string) error {
+	remoteName := ""
+	if len(args) > 0 {
+		remoteName = args[0]
+	}
+	g, err := Open(".")
+	if err != nil {
+		return fmt.Errorf("open: %w", err)
+	}
+	defer g.Close()
+	return g.Push(remoteName)
+}
+
+func Pull(args []string) error {
+	remoteName := ""
+	if len(args) > 0 {
+		remoteName = args[0]
+	}
+	g, err := Open(".")
+	if err != nil {
+		return fmt.Errorf("open: %w", err)
+	}
+	defer g.Close()
+	return g.Pull(remoteName)
 }

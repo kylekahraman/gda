@@ -3,6 +3,7 @@ package annex
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -827,4 +828,72 @@ func (g *GDA) Lock(paths []string) error {
 	}
 
 	return g.Index.Save()
+}
+
+func (g *GDA) RemoteAdd(name, url string) error {
+	return g.Index.RemoteAdd(name, url)
+}
+
+func (g *GDA) Push(remoteName string) error {
+	if remoteName == "" {
+		remoteName = "origin"
+	}
+	remote, err := g.Index.RemoteGet(remoteName)
+	if err != nil {
+		return err
+	}
+
+	src := filepath.Join(g.Root, ".gda") + "/"
+	var dest string
+	if strings.Contains(remote.URL, ":") {
+		dest = remote.URL + "/.gda/"
+	} else {
+		dest = filepath.Join(remote.URL, ".gda") + "/"
+	}
+
+	fmt.Printf("Pushing to remote %s (%s)...\n", remote.Name, remote.URL)
+	cmd := exec.Command("rsync", "-a", "--info=progress2",
+		"--include=objects/", "--include=objects/**",
+		"--include=snapshots/", "--include=snapshots/**",
+		"--exclude=*", src, dest)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("rsync push: %w", err)
+	}
+
+	fmt.Println("Push complete.")
+	return nil
+}
+
+func (g *GDA) Pull(remoteName string) error {
+	if remoteName == "" {
+		remoteName = "origin"
+	}
+	remote, err := g.Index.RemoteGet(remoteName)
+	if err != nil {
+		return err
+	}
+
+	var src string
+	if strings.Contains(remote.URL, ":") {
+		src = remote.URL + "/.gda/"
+	} else {
+		src = filepath.Join(remote.URL, ".gda") + "/"
+	}
+	dest := filepath.Join(g.Root, ".gda") + "/"
+
+	fmt.Printf("Pulling from remote %s (%s)...\n", remote.Name, remote.URL)
+	cmd := exec.Command("rsync", "-a", "--info=progress2",
+		"--include=objects/", "--include=objects/**",
+		"--include=snapshots/", "--include=snapshots/**",
+		"--exclude=*", src, dest)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("rsync pull: %w", err)
+	}
+
+	fmt.Println("Pull complete. Verifying integrity...")
+	return g.Status(nil)
 }

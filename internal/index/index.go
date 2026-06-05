@@ -34,7 +34,10 @@ func Open(root string) (*Index, error) {
 	}
 
 	err = db.Update(func(tx *bolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists([]byte("files"))
+		if _, err := tx.CreateBucketIfNotExists([]byte("files")); err != nil {
+			return err
+		}
+		_, err = tx.CreateBucketIfNotExists([]byte("remotes"))
 		return err
 	})
 	if err != nil {
@@ -153,4 +156,72 @@ func (idx *Index) Save() error {
 
 func (idx *Index) Close() error {
 	return idx.db.Close()
+}
+
+type Remote struct {
+	Name string `json:"name"`
+	URL  string `json:"url"`
+}
+
+func (idx *Index) RemoteAdd(name, url string) error {
+	remote := &Remote{
+		Name: name,
+		URL:  url,
+	}
+	value, err := json.Marshal(remote)
+	if err != nil {
+		return err
+	}
+	return idx.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("remotes"))
+		return b.Put([]byte(name), value)
+	})
+}
+
+func (idx *Index) RemoteRemove(name string) error {
+	return idx.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("remotes"))
+		return b.Delete([]byte(name))
+	})
+}
+
+func (idx *Index) RemoteList() ([]Remote, error) {
+	var remotes []Remote
+	err := idx.db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("remotes"))
+		c := b.Cursor()
+		for k, v := c.First(); k != nil; k, v = c.Next() {
+			var remote Remote
+			if err := json.Unmarshal(v, &remote); err == nil {
+				remotes = append(remotes, remote)
+			} else {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return remotes, nil
+}
+
+func (idx *Index) RemoteGet(name string) (*Remote, error) {
+	var remote *Remote
+	err := idx.db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("remotes"))
+		v := b.Get([]byte(name))
+		if v != nil {
+			remote = new(Remote)
+			return json.Unmarshal(v, remote)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if remote == nil {
+		return nil, fmt.Errorf("remote %q not found", name)
+	}
+	return remote, nil
 }
