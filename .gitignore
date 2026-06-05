@@ -4,3 +4,5 @@
 *.test
 *.out
 cache/
+docs/dist
+docs/node_modules
