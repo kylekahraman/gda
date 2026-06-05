@@ -3,18 +3,20 @@ title: How GDA Works
 description: Architecture and core concepts
 ---
 
-GDA is built around a simple idea: **content-addressed storage**. Every file is identified by the cryptographic hash of its content, not by its filename or location.
+Most tools identify files by where they live (file path). GDA identifies files by **what's inside them** (their hash). This one change makes deduplication, integrity checking, and instant rename possible.
+
+Think of it like a fingerprint: every file gets a unique fingerprint based on its content. Two files with the same content have the same fingerprint — GDA stores them once. Change one byte, and the fingerprint changes — GDA treats it as a different file.
 
 ## Core Concepts
 
-### Content-addressed storage
+### How files are stored
 
 When you add a file, GDA:
-1. Reads the file and computes its SHA256 hash
-2. Writes the content to `.gda/objects/XX/YYYYYY...` where `XXYYYYYY...` is the full hash
-3. Sets permissions to read-only (0444) — objects don't change
+1. Reads the file and computes a SHA256 fingerprint (hash)
+2. Writes the content to `.gda/objects/XX/YYYYYY...` where `XXYYYYYY...` is the full fingerprint
+3. Makes the file read-only (0444) — stored files never change
 
-The filename IS the content. If two files have identical content, they produce the same hash and are stored once.
+Same content = same fingerprint = stored once.
 
 ```
 Original files:               Object store:

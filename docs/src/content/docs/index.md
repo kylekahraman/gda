@@ -1,9 +1,11 @@
 ---
 title: GDA — Data Versioning for Research
-description: Content-addressed data versioning for research datasets
+description: Version control for research datasets — without git-annex
 ---
 
-GDA versions research datasets. No git required. No complex setup. Just snapshots, checkout, and rsync sync — without the headache of git-annex.
+GDA versions research datasets. No git required. You download data, add it,
+snapshot when you've done something useful, checkout when you mess up, and
+push to share with collaborators.
 
 ---
 

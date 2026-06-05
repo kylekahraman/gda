@@ -29,7 +29,7 @@ Yes. GDA stores everything in `.gda/`. You can have a git repo in the same direc
 
 ### Where is my data stored?
 
-In `.gda/objects/XX/YYY...` where `XX` is the first 2 characters of the SHA256 hash and `YYY...` is the rest. Files are read-only (0444 permissions) and content-addressed — the filename IS the hash.
+In `.gda/objects/XX/YYY...` where `XX` is the first 2 characters of the SHA256 hash and `YYY...` is the rest. Files are read-only (0444 permissions) and identified by their content — the filename IS the hash.
 
 ### Is data duplicated if I add the same file twice?
 

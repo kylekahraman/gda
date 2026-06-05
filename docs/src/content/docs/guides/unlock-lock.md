@@ -3,7 +3,7 @@ title: Unlock & Lock
 description: Edit tracked files without breaking the symlink system
 ---
 
-By default, GDA tracks files as **read-only symlinks** to content-addressed blobs. Some data processing pipelines need write access to files.
+By default, GDA tracks files as **read-only symlinks** to content-stored blobs. Some data processing pipelines need write access to files.
 
 ## Unlock
 

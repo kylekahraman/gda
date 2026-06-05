@@ -7,7 +7,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: 'GDA',
-      description: 'Content-addressed data versioning for research datasets',
+      description: 'Version control for research datasets — without git-annex',
       favicon: '/favicon.svg',
       social: [
         { icon: 'github', label: 'GitHub', href: 'https://github.com/kylekahraman/gda' },
@@ -20,6 +20,7 @@ export default defineConfig({
           label: 'Getting Started',
           items: [
             { label: 'Why GDA?', slug: 'why-gda' },
+            { label: 'Use Cases', slug: 'use-cases' },
             { label: 'Installation', slug: 'installation' },
             { label: 'Quick Start', slug: 'quick-start' },
             { label: 'Overview', slug: 'overview' },

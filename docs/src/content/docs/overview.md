@@ -33,11 +33,7 @@ gda push origin             # Sync to remote storage
 
 ### No git required
 
-GDA is standalone. No `.git`, no branches, no staging area, no merge conflicts. You run one command to do one thing, and it works the way you'd expect.
-
-### Content addressing
-
-Every file is identified by its SHA256 hash. Add the same file twice — zero extra storage. Rename or move files — instant, because only the symlink changes.
+GDA identifies files by their content, not their location. Add the same file twice — zero extra storage. Move or rename — instant, because only the symlink changes.
 
 ### Snapshots, not commits
 
