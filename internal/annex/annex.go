@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/kylekahraman/gda/internal/index"
@@ -45,32 +46,64 @@ func (g *GDA) Init() error {
 	return g.printStats()
 }
 
-// Add adds one or more files to the store.
+// Add adds files or directories to the store.
 func (g *GDA) Add(paths []string) error {
+	// Expand directories into file lists via a single walk
+	var files []string
 	for _, path := range paths {
 		abs, err := filepath.Abs(path)
 		if err != nil {
 			return fmt.Errorf("abs %s: %w", path, err)
 		}
-
-		// Get file info
 		fi, err := os.Stat(abs)
 		if err != nil {
 			return fmt.Errorf("stat %s: %w", path, err)
 		}
 		if fi.IsDir() {
-			return fmt.Errorf("%s is a directory (not supported yet)", path)
+			err := filepath.Walk(abs, func(walkPath string, walkFi os.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+				if walkFi.IsDir() || walkFi.Mode()&os.ModeSymlink != 0 {
+					return nil
+				}
+				files = append(files, walkPath)
+				return nil
+			})
+			if err != nil {
+				return fmt.Errorf("walk %s: %w", path, err)
+			}
+		} else {
+			files = append(files, abs)
+		}
+	}
+
+	if len(files) == 0 {
+		return fmt.Errorf("no files found to add")
+	}
+
+	rootAbs, err := filepath.Abs(g.Root)
+	if err != nil {
+		return fmt.Errorf("abs root: %w", err)
+	}
+
+	for _, abs := range files {
+		fi, err := os.Lstat(abs)
+		if err != nil {
+			return fmt.Errorf("lstat %s: %w", abs, err)
+		}
+		if fi.Mode()&os.ModeSymlink != 0 {
+			continue
 		}
 
 		// Hash and store
 		key, err := g.Store.Add(abs)
 		if err != nil {
-			return fmt.Errorf("add %s: %w", path, err)
+			return fmt.Errorf("add %s: %w", abs, err)
 		}
 
 		// Replace original with symlink (relative path from file location to object)
-		objPath := g.Store.ObjectPath(key)
-		objAbs, err := filepath.Abs(objPath)
+		objAbs, err := filepath.Abs(g.Store.ObjectPath(key))
 		if err != nil {
 			return fmt.Errorf("abs object: %w", err)
 		}
@@ -80,17 +113,13 @@ func (g *GDA) Add(paths []string) error {
 		}
 
 		if err := os.Remove(abs); err != nil {
-			return fmt.Errorf("remove original %s: %w", path, err)
+			return fmt.Errorf("remove original %s: %w", abs, err)
 		}
 		if err := os.Symlink(rel, abs); err != nil {
-			return fmt.Errorf("create symlink %s: %w", path, err)
+			return fmt.Errorf("create symlink %s: %w", abs, err)
 		}
 
 		// Update index
-		rootAbs, err := filepath.Abs(g.Root)
-		if err != nil {
-			return fmt.Errorf("abs root: %w", err)
-		}
 		relPath, _ := filepath.Rel(rootAbs, abs)
 		g.Index.Set(relPath, key, fi.Size(), fi.ModTime().Unix())
 
@@ -128,7 +157,10 @@ func (g *GDA) Status(paths []string) error {
 	return nil
 }
 
-// Move renames a tracked file path.
+// Move renames a tracked file or directory prefix in the index.
+// Single files: gda mv meg/file.fif bids/file.fif
+// Directories:  gda mv meg/ bids/  (moves all files under meg/ to bids/)
+// Instant operation — only symlinks and index entries, no content copies.
 func (g *GDA) Move(args []string) error {
 	if len(args) != 2 {
 		return fmt.Errorf("usage: gda mv <source> <dest>")
@@ -136,6 +168,43 @@ func (g *GDA) Move(args []string) error {
 	src := args[0]
 	dst := args[1]
 
+	// Try single-file move first
+	entry := g.Index.Get(src)
+	if entry != nil {
+		return g.moveFile(src, dst)
+	}
+
+	// Otherwise treat as prefix/directory move
+	srcPrefix := src
+	if !strings.HasSuffix(srcPrefix, "/") {
+		srcPrefix += "/"
+	}
+
+	var toMove []string
+	for path := range g.Index.All() {
+		if strings.HasPrefix(path, srcPrefix) {
+			toMove = append(toMove, path)
+		}
+	}
+
+	if len(toMove) == 0 {
+		return fmt.Errorf("%s is not tracked and no tracked files share that prefix", src)
+	}
+
+	for _, oldPath := range toMove {
+		suffix := oldPath[len(srcPrefix):]
+		newPath := filepath.Join(dst, suffix)
+		if err := g.moveFile(oldPath, newPath); err != nil {
+			return fmt.Errorf("move %s: %w", oldPath, err)
+		}
+	}
+
+	fmt.Printf("Moved %d files from %s/ -> %s/\n", len(toMove), strings.TrimRight(src, "/"), strings.TrimRight(dst, "/"))
+	return g.Index.Save()
+}
+
+// moveFile moves a single tracked file from oldPath to newPath.
+func (g *GDA) moveFile(src, dst string) error {
 	entry := g.Index.Get(src)
 	if entry == nil {
 		return fmt.Errorf("%s is not tracked", src)
@@ -185,9 +254,9 @@ func (g *GDA) Move(args []string) error {
 	relDst, _ := filepath.Rel(rootAbs, dstAbs)
 	g.Index.Set(relDst, entry.Key, entry.Size, entry.MTime)
 
-	fmt.Printf("Moved %s → %s\n", src, relDst)
+	fmt.Printf("Moved %s -> %s\n", src, relDst)
 
-	return g.Index.Save()
+	return nil
 }
 
 // Remove removes a file from tracking (content stays in store).
