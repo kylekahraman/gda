@@ -25,6 +25,13 @@ export default defineConfig({
           ],
         },
         {
+          label: 'Concepts',
+          items: [
+            { label: 'How GDA Works', slug: 'concepts' },
+            { label: 'FAQ & Troubleshooting', slug: 'faq' },
+          ],
+        },
+        {
           label: 'Guides',
           items: [
             { label: 'Adding Data', slug: 'guides/adding-data' },
