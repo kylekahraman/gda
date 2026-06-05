@@ -15,7 +15,7 @@ push to share with collaborators.
 - **You share data with labmates** and want everyone on the same file tree
 - **You archive data** and want to know it's not silently corrupting
 - **You restructure files constantly** and hate waiting for copies
-- **Git-annex makes you angry**
+- **You want to version large datasets without using git-annex**
 
 → [Why GDA?](/gda/why-gda/) — honest comparison
 → [Use Cases](/gda/use-cases/) — real workflows

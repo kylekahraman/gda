@@ -7,11 +7,11 @@ description: Common questions and solutions
 
 ### How is GDA different from git-annex?
 
-Git-annex is powerful but incredibly complex. It hooks into git internals, uses multiple branches (master, synced/master, adjusted branches), and has a brutal learning curve. GDA is a standalone tool with no git dependency. No adjusted branches, no merge conflicts, no special index. One command per operation.
+Git-annex is a powerful tool that hooks into git internals — it uses multiple branches (master, synced/master, adjusted branches) and has a steep learning curve. GDA is a standalone tool with no git dependency. No adjusted branches, no merge conflicts, no special index. One command per operation.
 
 ### How is GDA different from DVC?
 
-DVC (Data Version Control) is designed for ML pipelines — it tracks data alongside code in a git repo. GDA is designed for research datasets directly. No git integration required. No pipelines. Just data versioning.
+DVC (Data Version Control) is designed for ML pipelines — it tracks data alongside code in a git repo. GDA is designed for research datasets directly. No git integration required. No pipelines. Data versioning only.
 
 ### How is GDA different from Git LFS?
 

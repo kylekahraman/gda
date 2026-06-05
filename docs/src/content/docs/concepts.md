@@ -69,7 +69,7 @@ Restoring a snapshot recreates your project folder by placing symlinks for every
 
 ### Why not git?
 
-Git is designed for tracking changes to text files. Its model — trees of commits with diffs — breaks down with large binary files. Git-annex works around this by storing content outside git, but at the cost of way too much complexity. GDA starts from scratch with a model that actually fits research data.
+Git is designed for tracking changes to text files. Its model — trees of commits with diffs — breaks down with large binary files. Git-annex works around this by storing content outside git, but introduces substantial complexity. GDA starts from scratch with a model designed for research data.
 
 ### Why SHA256?
 

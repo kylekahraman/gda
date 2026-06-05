@@ -15,9 +15,9 @@ You've got a 500 GB fMRI dataset. You need to:
 - Share data with collaborators
 - Verify data integrity months later
 
-Git can't handle 500 GB files. Git-annex can, but it's a beast. DVC needs a git repo and pipeline definitions. Rsync gives you copies, not versions.
+Git can't handle 500 GB files. Git-annex can, but it adds significant complexity — it wraps git internals with adjusted branches, direct mode, and special remotes. DVC needs a git repo and pipeline definitions. Rsync gives you copies, not versions.
 
-None of these tools were built for how researchers actually work.
+These tools weren't designed around the workflow of versioning research datasets directly.
 
 ## What GDA Does
 
@@ -60,7 +60,7 @@ Stored files are read-only and named by their fingerprint. `gda fsck` verifies e
 - You share data with labmates and need everyone on the same file tree
 - You want to archive data with integrity verification
 - You restructure your files constantly and hate waiting for copies
-- Git-annex made you want to throw your laptop off a roof
+- Git-annex complexity is a barrier for your workflow
 
 **Not a good fit (yet):**
 - You need two people editing the same dataset at the same time (branches/merging planned)
