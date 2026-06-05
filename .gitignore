@@ -1,0 +1,5 @@
+/gda
+/gda.exe
+*.test
+*.out
+cache/
