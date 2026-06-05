@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+
+      - name: Build
+        run: go build ./cmd/gda/
+
+      - name: Quick integration test
+        run: |
+          cd /tmp && rm -rf citest && mkdir citest && cd citest
+          echo "test" > f.txt
+          ${{ github.workspace }}/gda init
+          ${{ github.workspace }}/gda add f.txt
+          ${{ github.workspace }}/gda status
+          ${{ github.workspace }}/gda snapshot s1
+          ${{ github.workspace }}/gda checkout s1
+          ${{ github.workspace }}/gda fsck
+          echo "CI_PASSED"
