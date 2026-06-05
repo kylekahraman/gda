@@ -5,7 +5,7 @@ description: What GDA is and why it exists
 
 ## The Problem
 
-You have a 500 GB fMRI dataset. You need to:
+You've got a 500 GB fMRI dataset. You need to:
 
 - Track which files belong to which analysis
 - Save and restore checkpoints as preprocessing changes
@@ -13,11 +13,13 @@ You have a 500 GB fMRI dataset. You need to:
 - Share data with collaborators
 - Verify data integrity months later
 
-Git can't handle 500 GB files. Git-annex can, but fighting it is a full-time job. DVC requires a git repo and pipeline definitions. Rsync gives you copies, not versions.
+Git can't handle 500 GB files. Git-annex technically can, but using it is a full-time job. DVC needs a git repo and pipeline definitions. Rsync gives you copies, not versions.
+
+None of these tools were built for the way researchers actually work.
 
 ## What GDA Does
 
-GDA is a **content-addressed data versioning tool** purpose-built for research datasets.
+GDA is a content-addressed data versioning tool. It hashes files, stores them by their SHA256, and replaces originals with symlinks. That's it.
 
 ```shell
 gda init                    # Start tracking
@@ -27,11 +29,11 @@ gda checkout raw            # Restore previous state
 gda push origin             # Sync to remote storage
 ```
 
-## Key Benefits
+## Why It's Different
 
 ### No git required
 
-GDA is standalone. No `.git`, no branches, no staging area, no merge conflicts. You run one command to do one thing, and it works the way you expect.
+GDA is standalone. No `.git`, no branches, no staging area, no merge conflicts. You run one command to do one thing, and it works the way you'd expect.
 
 ### Content addressing
 
@@ -43,7 +45,7 @@ A snapshot is a complete manifest of your dataset at a point in time. No diffs, 
 
 ### Integrity by design
 
-Objects are stored read-only with content-validating filenames. `gda fsck` verifies every file matches its hash. Corruption is detectable, not silent.
+Objects are stored read-only with content-validating filenames. `gda fsck` verifies every file matches its hash. If something's corrupted, you'll know.
 
 ## Is GDA Right For You?
 

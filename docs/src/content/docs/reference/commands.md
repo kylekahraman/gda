@@ -15,8 +15,6 @@ gda init
 
 Creates `.gda/` with the object store and index. Safe to run on an existing repo (no-op if already initialized).
 
-**Options:** None
-
 ---
 
 ### `gda add <path> [<path> ...]`
@@ -237,6 +235,8 @@ Sync remote objects to local.
 ```shell
 gda pull origin
 ```
+
+---
 
 ## Help
 

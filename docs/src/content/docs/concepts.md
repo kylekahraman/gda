@@ -12,7 +12,7 @@ GDA is built around a simple idea: **content-addressed storage**. Every file is 
 When you add a file, GDA:
 1. Reads the file and computes its SHA256 hash
 2. Writes the content to `.gda/objects/XX/YYYYYY...` where `XXYYYYYY...` is the full hash
-3. Sets permissions to read-only (0444) — objects are immutable
+3. Sets permissions to read-only (0444) — objects don't change
 
 The filename IS the content. If two files have identical content, they produce the same hash and are stored once.
 
@@ -69,16 +69,16 @@ Restoring a snapshot rebuilds the working tree by creating symlinks for every en
 
 ### Why not git?
 
-Git is designed for tracking changes to text files (source code). Its model — trees of commits with diffs — breaks down with large binary files. Git-annex works around this by storing content outside git, but at the cost of immense complexity. GDA starts from scratch with a model optimized for research data.
+Git is designed for tracking changes to text files. Its model — trees of commits with diffs — breaks down with large binary files. Git-annex works around this by storing content outside git, but at the cost of way too much complexity. GDA starts from scratch with a model that actually fits research data.
 
 ### Why SHA256?
 
-SHA256 is the industry standard for content addressing. Fast (hardware-accelerated on modern CPUs), collision-resistant, and widely supported.
+SHA256 is the standard for content addressing. It's fast (hardware-accelerated on modern CPUs), collision-resistant, and widely supported.
 
 ### Why BoltDB?
 
-The index needs to handle millions of entries with fast lookups. BoltDB is an embedded key-value store written in Go — no external dependencies, ACID transactions, and good performance.
+The index needs to handle millions of entries with fast lookups. BoltDB is an embedded key-value store written in Go — no external dependencies, ACID transactions, good performance.
 
 ### Why rsync for remotes?
 
-Rsync is available on every Linux and macOS system. It's battle-tested for large data transfers. SSH-based rsync requires no special server software. S3 and other backends can be added later.
+Rsync is available on every Linux and macOS system. It's been around forever and works for large data transfers. SSH-based rsync doesn't need special server software. S3 and other backends can be added later.

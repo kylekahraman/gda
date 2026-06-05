@@ -22,4 +22,4 @@ Use `gda remote add` to manage remotes.
 
 ## No Other Configuration
 
-GDA is designed to be zero-config. No config files, no gitignore equivalents. The `.gda/` directory is automatically excluded from operations.
+GDA is zero-config. No config files, no gitignore equivalents. The `.gda/` directory is automatically excluded from operations.

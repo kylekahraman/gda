@@ -29,7 +29,7 @@ Store: .gda
 Index: 0 entries
 ```
 
-A `.gda/` directory is created. This is where GDA stores everything.
+This creates a `.gda/` directory. It's where GDA stores everything.
 
 ## 2. Add data
 
@@ -43,7 +43,7 @@ Added sub-01/meg/run.fif (21 B, SHA256: a1b2c3d4e5f6...)
 Added sub-01/beh/data.csv (39 B, SHA256: f6e5d4c3b2a1...)
 ```
 
-Each file is hashed (SHA256), stored in `.gda/objects/`, and the original is replaced with a symlink pointing to the object.
+GDA hashes each file (SHA256), stores it in `.gda/objects/`, and replaces the original with a symlink pointing to the object.
 
 ## 3. Check status
 
@@ -60,7 +60,7 @@ Tracked files:
 2 files, 60 B total
 ```
 
-Every file shows `ok` if everything is intact.
+Every file shows `ok` if everything's intact.
 
 ## 4. Create a snapshot
 
@@ -73,7 +73,7 @@ Output:
 Snapshot "raw-v1" saved (2 files, 60 B)
 ```
 
-A snapshot records every tracked file's path and hash. It's like a bookmark you can return to.
+A snapshot records every tracked file's path and hash. Think of it as a bookmark you can return to.
 
 ## 5. View history
 

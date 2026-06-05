@@ -3,7 +3,7 @@ title: GDA — Data Versioning for Research
 description: Content-addressed data versioning for research datasets
 ---
 
-GDA is a lightweight, standalone tool for versioning research datasets. Content-addressed storage, symlink working tree, snapshots, and remote sync — without the complexity of git-annex.
+GDA versions research datasets. No git required. No complex setup. Just snapshots, checkout, and rsync sync — without the headache of git-annex.
 
 ---
 
@@ -11,7 +11,7 @@ GDA is a lightweight, standalone tool for versioning research datasets. Content-
 
 | Guide | What you'll learn |
 |---|---|
-| [Overview](/gda/overview/) | What GDA is and when to use it |
+| [Overview](/gda/overview/) | What GDA is and when it's useful |
 | [Installation](/gda/installation/) | Download or build GDA |
 | [Quick Start](/gda/quick-start/) | Track your first dataset in 5 minutes |
 

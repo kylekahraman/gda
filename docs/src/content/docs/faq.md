@@ -7,7 +7,7 @@ description: Common questions and solutions
 
 ### How is GDA different from git-annex?
 
-Git-annex is powerful but complex — it hooks into git internals, uses multiple branches (master, synced/master, adjusted branches), and has a steep learning curve. GDA is a standalone tool with no git dependency. No adjusted branches, no merge conflicts, no special index. One working tree, one command per operation.
+Git-annex is powerful but incredibly complex. It hooks into git internals, uses multiple branches (master, synced/master, adjusted branches), and has a brutal learning curve. GDA is a standalone tool with no git dependency. No adjusted branches, no merge conflicts, no special index. One working tree, one command per operation.
 
 ### How is GDA different from DVC?
 
@@ -15,7 +15,7 @@ DVC (Data Version Control) is designed for ML pipelines — it tracks data along
 
 ### How is GDA different from Git LFS?
 
-Git LFS replaces large files with pointer files in git, storing blobs on a remote server. It still requires git and has limitations (file size caps, remote requirements). GDA works entirely standalone — no git, no server required for local use.
+Git LFS replaces large files with pointer files in git, storing blobs on a remote server. It still needs git and has limitations (file size caps, remote requirements). GDA works entirely standalone — no git, no server required for local use.
 
 ### Does GDA use git?
 
@@ -53,7 +53,7 @@ As many as you want. Each snapshot is a JSON manifest of path→hash mappings. A
 
 ### How fast is GDA?
 
-Hashing is the bottleneck — GDA reads every file once (hash + copy in a single pass). On a modern SSD, expect ~500 MB/s for adds. Operations like `mv`, `rm`, `status` are instant (index-only).
+Hashing is the bottleneck — GDA reads every file once (hash + copy in a single pass). On a modern SSD, expect roughly 500 MB/s for adds. Operations like `mv`, `rm`, `status` are instant (index-only).
 
 ### How large can a repository be?
 

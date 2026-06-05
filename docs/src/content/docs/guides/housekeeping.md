@@ -15,7 +15,7 @@ gda gc --dry-run
 gda gc
 ```
 
-Objects younger than 1 hour are never removed (grace period prevents race conditions with concurrent operations).
+Objects younger than 1 hour are never removed. This grace period prevents race conditions with concurrent operations.
 
 ## Integrity Check
 

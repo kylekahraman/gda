@@ -19,6 +19,7 @@ export default defineConfig({
         {
           label: 'Getting Started',
           items: [
+            { label: 'Why GDA?', slug: 'why-gda' },
             { label: 'Installation', slug: 'installation' },
             { label: 'Quick Start', slug: 'quick-start' },
             { label: 'Overview', slug: 'overview' },
