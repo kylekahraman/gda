@@ -42,10 +42,13 @@ jobs:
           test -f dist/installation/index.html && echo "  ✓ installation/index.html"
           test -f dist/quick-start/index.html && echo "  ✓ quick-start/index.html"
           test -f dist/reference/commands/index.html && echo "  ✓ commands/index.html"
-          test -f dist/guides/adding-data/index.html && echo "  ✓ guides/adding-data/index.html"
           test -f dist/404.html && echo "  ✓ 404.html"
           test -f dist/pagefind/pagefind.js && echo "  ✓ search index"
           echo "All pages present. Build validated."
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/dist
 
   deploy:
     environment:

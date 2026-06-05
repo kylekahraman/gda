@@ -3,27 +3,48 @@ title: GDA — Data Versioning for Research
 description: Content-addressed data versioning for research datasets
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
+GDA is a lightweight, standalone tool for versioning research datasets. Content-addressed storage, symlink working tree, snapshots, and remote sync — without the complexity of git-annex.
 
-GDA is a lightweight, standalone tool for versioning research data. Content-addressed storage, symlink working tree, snapshots, and remote sync — without the complexity of git-annex.
+---
 
-<CardGrid>
-  <Card title="Quick Start" icon="rocket">
-    Get started in 5 minutes — init, add, snapshot, done.
-  </Card>
-  <Card title="Installation" icon="download">
-    Download a binary or build from source.
-  </Card>
-  <Card title="Commands" icon="reference">
-    Full command reference for every GDA operation.
-  </Card>
-</CardGrid>
+## Getting Started
 
-## Key Features
+| Guide | What you'll learn |
+|---|---|
+| [Overview](/gda/overview/) | What GDA is and when to use it |
+| [Installation](/gda/installation/) | Download or build GDA |
+| [Quick Start](/gda/quick-start/) | Track your first dataset in 5 minutes |
 
-- **Content-addressed storage** — files stored once by SHA256 hash
-- **Symlink working tree** — browse without special tools
-- **Snapshots** — lightweight, named dataset checkpoints
-- **Unlock/Lock** — edit files when pipelines need write access
-- **Remote sync** — push/pull via rsync
-- **No git dependency** — standalone binary
+## Guides
+
+| Guide | What you'll learn |
+|---|---|
+| [Adding Data](/gda/guides/adding-data/) | Track files and directories |
+| [Snapshots & Checkout](/gda/guides/snapshots/) | Version your dataset state |
+| [Moving & Removing](/gda/guides/moving-removing/) | Rename or untrack files |
+| [Unlock & Lock](/gda/guides/unlock-lock/) | Edit tracked files safely |
+| [Remote Storage](/gda/guides/remote-storage/) | Sync via rsync |
+| [Housekeeping](/gda/guides/housekeeping/) | GC and integrity checks |
+
+## Reference
+
+| Page | Description |
+|---|---|
+| [Commands](/gda/reference/commands/) | Complete command reference |
+| [Store Format](/gda/reference/store-format/) | How data is stored on disk |
+| [Configuration](/gda/reference/configuration/) | Environment variables and remotes |
+
+---
+
+## Quick Start
+
+```bash
+gda init
+gda add bids/
+gda status
+gda mv bids/ sourcedata/
+gda snapshot experiment1
+gda checkout experiment1
+```
+
+→ [Continue to Overview →](/gda/overview/)
