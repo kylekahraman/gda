@@ -22,6 +22,8 @@ var helpText = map[string]string{
 	"fsck":     "Scan index vs working tree and repair broken symlinks",
 	"unlock":   "Replace a symlink with a writable copy of the content",
 	"lock":     "Re-hash a file and restore its symlink",
+	"undo":     "Revert the last lock operation",
+	"reindex":  "Rebuild index from existing symlinks",
 	"remote":   "Add, remove, or list remote repositories",
 	"push":     "Upload objects and snapshots to a remote",
 	"pull":     "Download objects and snapshots from a remote",
@@ -32,7 +34,8 @@ func usage() {
 	for _, name := range []string{
 		"init", "add", "status", "mv", "rm",
 		"snapshot", "log", "checkout",
-		"gc", "fsck", "unlock", "lock",
+		"gc", "fsck", "unlock", "lock", "undo",
+		"reindex",
 		"remote", "push", "pull",
 	} {
 		fmt.Fprintf(os.Stderr, "  %-10s %s\n", name, helpText[name])
@@ -104,6 +107,10 @@ func main() {
 		err = runCmd("unlock", args, annex.Unlock)
 	case "lock":
 		err = runCmd("lock", args, annex.Lock)
+	case "undo":
+		err = runCmd("undo", args, annex.Undo)
+	case "reindex":
+		err = runCmd("reindex", args, annex.Reindex)
 	case "remote":
 		err = runCmd("remote", args, annex.Remote)
 	case "push":

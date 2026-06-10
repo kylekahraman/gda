@@ -1,6 +1,7 @@
 package annex
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
@@ -8,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kylekahraman/gda/internal/devlog"
 	"github.com/kylekahraman/gda/internal/index"
 	"github.com/kylekahraman/gda/internal/store"
 )
@@ -42,13 +44,91 @@ func (g *GDA) Close() error {
 
 // Init initializes a new GDA repo.
 func (g *GDA) Init() error {
-	// Store and Index are already opened by Open
 	fmt.Printf("Initialized GDA store in %s\n", filepath.Join(g.Root, ".gda"))
+
+	// Create default .gdaignore
+	//? should this be moved somewhere else?
+	ignoreFile := filepath.Join(g.Root, ".gdaignore")
+	if _, err := os.Stat(ignoreFile); os.IsNotExist(err) {
+		defaultIgnore := `# GDA ignore patterns (same syntax as .gitignore)
+		# Files matching these patterns are skipped by 'gda add'.
+		.DS_Store
+		*.swp
+		*.swo
+		*~
+		Thumbs.db
+		ehthumbs.db
+		Desktop.ini
+		.gda/
+		`
+		if err := os.WriteFile(ignoreFile, []byte(defaultIgnore), 0644); err != nil {
+			return fmt.Errorf("create .gdaignore: %w", err)
+		}
+		fmt.Println("Created .gdaignore")
+	}
+
 	return g.printStats()
+}
+
+// loadIgnorePatterns reads .gdaignore from the repo root.
+// Returns nil if no .gdaignore exists.
+func (g *GDA) loadIgnorePatterns() ([]string, error) {
+	ignoreFile := filepath.Join(g.Root, ".gdaignore")
+	f, err := os.Open(ignoreFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	defer f.Close()
+
+	var patterns []string
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		patterns = append(patterns, line)
+	}
+	return patterns, scanner.Err()
+}
+
+// isIgnored checks if a path (relative to repo root) matches any .gdaignore pattern.
+func (g *GDA) isIgnored(relPath string, patterns []string) bool {
+	base := filepath.Base(relPath)
+	// Normalize: ensure paths don't start with ./
+	clean := strings.TrimPrefix(relPath, "./")
+	for _, p := range patterns {
+		// Strip trailing / for matching (they're directory-only hints)
+		p = strings.TrimSuffix(p, "/")
+		// Try matching basename
+		if matched, _ := filepath.Match(p, base); matched {
+			return true
+		}
+		// Try matching clean relative path
+		if matched, _ := filepath.Match(p, clean); matched {
+			return true
+		}
+		// Try matching any path component (like .gitignore's "foo" matches dir/foo)
+		if !strings.Contains(p, "/") {
+			if matched, _ := filepath.Match(p, clean); matched {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // Add adds files or directories to the store.
 func (g *GDA) Add(paths []string) error {
+	// Load ignore patterns once
+	ignorePatterns, err := g.loadIgnorePatterns()
+	if err != nil {
+		return fmt.Errorf("load .gdaignore: %w", err)
+	}
+
 	// Expand directories into file lists via a single walk
 	var files []string
 	for _, path := range paths {
@@ -65,9 +145,28 @@ func (g *GDA) Add(paths []string) error {
 				if err != nil {
 					return err
 				}
+
+				// Compute relative path from repo root once
+				relPath, _ := filepath.Rel(g.Root, walkPath)
+
+				// Skip .gda/ directory and contents entirely
+				if relPath == ".gda" || strings.HasPrefix(relPath, ".gda/") {
+					if walkFi.IsDir() {
+						return filepath.SkipDir
+					}
+					return nil
+				}
+
 				if walkFi.IsDir() || walkFi.Mode()&os.ModeSymlink != 0 {
 					return nil
 				}
+
+				// Skip files matching .gdaignore patterns
+				if len(ignorePatterns) > 0 && g.isIgnored(relPath, ignorePatterns) {
+					devlog.Printf("skipping (ignored): %s", relPath)
+					return nil
+				}
+
 				files = append(files, walkPath)
 				return nil
 			})
@@ -75,6 +174,12 @@ func (g *GDA) Add(paths []string) error {
 				return fmt.Errorf("walk %s: %w", path, err)
 			}
 		} else {
+			absPath, _ := filepath.Abs(path)
+			relPath, _ := filepath.Rel(g.Root, absPath)
+			if len(ignorePatterns) > 0 && g.isIgnored(relPath, ignorePatterns) {
+				fmt.Printf("Skipped %s (matches .gdaignore)\n", relPath)
+				continue
+			}
 			files = append(files, abs)
 		}
 	}
@@ -88,7 +193,9 @@ func (g *GDA) Add(paths []string) error {
 		return fmt.Errorf("abs root: %w", err)
 	}
 
-	for _, abs := range files {
+	total := len(files)
+	for i, abs := range files {
+		prefix := fmt.Sprintf("[%d/%d] ", i+1, total)
 		fi, err := os.Lstat(abs)
 		if err != nil {
 			return fmt.Errorf("lstat %s: %w", abs, err)
@@ -124,7 +231,7 @@ func (g *GDA) Add(paths []string) error {
 		relPath, _ := filepath.Rel(rootAbs, abs)
 		g.Index.Set(relPath, key, fi.Size(), fi.ModTime().Unix())
 
-		fmt.Printf("Added %s (%s, SHA256: %s)\n", relPath, formatSize(fi.Size()), key[:16])
+		fmt.Printf("%sAdded %s (%s, SHA256: %s)\n", prefix, relPath, formatSize(fi.Size()), key[:16])
 	}
 
 	return g.Index.Save()
@@ -795,6 +902,16 @@ func (g *GDA) Lock(paths []string) error {
 			continue
 		}
 
+		// Save undo state before modifying
+		undo, err := loadUndoStore(g.Root)
+		if err != nil {
+			return fmt.Errorf("load undo: %w", err)
+		}
+		undo.record(relPath, entry.Key, entry.Size, entry.MTime)
+		if err := undo.save(); err != nil {
+			return fmt.Errorf("save undo: %w", err)
+		}
+
 		newKey, err := g.Store.Add(absPath)
 		if err != nil {
 			return fmt.Errorf("lock store add %s: %w", relPath, err)
@@ -828,6 +945,88 @@ func (g *GDA) Lock(paths []string) error {
 	}
 
 	return g.Index.Save()
+}
+
+// Undo reverts the last lock operation for the given files.
+func (g *GDA) Undo(paths []string) error {
+	if len(paths) == 0 {
+		return fmt.Errorf("usage: gda undo <file> [file...]")
+	}
+
+	undo, err := loadUndoStore(g.Root)
+	if err != nil {
+		return fmt.Errorf("load undo: %w", err)
+	}
+	if undo.isEmpty() {
+		return fmt.Errorf("nothing to undo")
+	}
+
+	rootAbs, err := filepath.Abs(g.Root)
+	if err != nil {
+		return fmt.Errorf("abs root: %w", err)
+	}
+
+	var restored int
+	for _, path := range paths {
+		absPath, err := filepath.Abs(path)
+		if err != nil {
+			return fmt.Errorf("abs %s: %w", path, err)
+		}
+		relPath, err := filepath.Rel(rootAbs, absPath)
+		if err != nil {
+			return fmt.Errorf("rel %s: %w", path, err)
+		}
+
+		entry := undo.pop(relPath)
+		if entry == nil {
+			fmt.Printf("%s has no undo state, skipping\n", relPath)
+			continue
+		}
+
+		if !g.Store.Exists(entry.Key) {
+			return fmt.Errorf("previous object for %s not found in store (may have been GC'd)", relPath)
+		}
+
+		// Restore the symlink pointing to the old object
+		objAbs := filepath.Join(rootAbs, ".gda", "objects", entry.Key[:2], entry.Key[2:])
+		rel, err := filepath.Rel(filepath.Dir(absPath), objAbs)
+		if err != nil {
+			return fmt.Errorf("symlink target for %s: %w", relPath, err)
+		}
+
+		if err := os.Remove(absPath); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("remove %s: %w", relPath, err)
+		}
+		if err := os.Symlink(rel, absPath); err != nil {
+			return fmt.Errorf("create symlink %s: %w", relPath, err)
+		}
+
+		// Update index with old key
+		g.Index.Set(relPath, entry.Key, entry.Size, entry.MTime)
+
+		fmt.Printf("Undid %s\n", relPath)
+		restored++
+	}
+
+	if err := g.Index.Save(); err != nil {
+		return fmt.Errorf("save index: %w", err)
+	}
+
+	// Save undo store (entries were popped)
+	if undo.isEmpty() {
+		if err := undo.removeFile(); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("remove undo: %w", err)
+		}
+	} else {
+		if err := undo.save(); err != nil {
+			return fmt.Errorf("save undo: %w", err)
+		}
+	}
+
+	if restored == 0 {
+		return fmt.Errorf("no files were undone")
+	}
+	return nil
 }
 
 func (g *GDA) RemoteAdd(name, url string) error {

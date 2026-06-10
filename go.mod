@@ -1,6 +1,6 @@
 module github.com/kylekahraman/gda
 
-go 1.26.4
+go 1.26
 
 require go.etcd.io/bbolt v1.4.3
 

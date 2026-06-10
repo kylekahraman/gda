@@ -148,6 +148,29 @@ func Lock(args []string) error {
 	return g.Lock(args)
 }
 
+// Undo reverts the last lock for the given files.
+func Undo(args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("usage: gda undo <file> [file...]")
+	}
+	g, err := Open(".")
+	if err != nil {
+		return fmt.Errorf("open: %w", err)
+	}
+	defer g.Close()
+	return g.Undo(args)
+}
+
+// Reindex rebuilds the index from existing symlinks in the working tree.
+func Reindex(args []string) error {
+	g, err := Open(".")
+	if err != nil {
+		return fmt.Errorf("open: %w", err)
+	}
+	defer g.Close()
+	return g.Reindex(args)
+}
+
 func Remote(args []string) error {
 	if len(args) == 0 {
 		g, err := Open(".")
