@@ -9,6 +9,11 @@ import (
 	"github.com/kylekahraman/gda/internal/devlog"
 )
 
+var (
+	version = "v0.0.1"
+	commit  = ""
+)
+
 var helpText = map[string]string{
 	"init":     "Initialize a GDA repo in the current directory",
 	"add":      "Track files or directories (recursive)",
@@ -27,6 +32,7 @@ var helpText = map[string]string{
 	"remote":   "Add, remove, or list remote repositories",
 	"push":     "Upload objects and snapshots to a remote",
 	"pull":     "Download objects and snapshots from a remote",
+	"version":  "Print GDA version",
 }
 
 func usage() {
@@ -37,6 +43,7 @@ func usage() {
 		"gc", "fsck", "unlock", "lock", "undo",
 		"reindex",
 		"remote", "push", "pull",
+		"version",
 	} {
 		fmt.Fprintf(os.Stderr, "  %-10s %s\n", name, helpText[name])
 	}
@@ -117,6 +124,12 @@ func main() {
 		err = runCmd("push", args, annex.Push)
 	case "pull":
 		err = runCmd("pull", args, annex.Pull)
+	case "version":
+		if commit != "" {
+			fmt.Printf("%s (%s)\n", version, commit)
+		} else {
+			fmt.Println(version)
+		}
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", cmd)
 		os.Exit(1)
