@@ -794,16 +794,12 @@ func (g *GDA) Unlock(paths []string) error {
 		return fmt.Errorf("abs root: %w", err)
 	}
 
-	for _, path := range paths {
-		absPath, err := filepath.Abs(path)
-		if err != nil {
-			return fmt.Errorf("abs %s: %w", path, err)
-		}
-		relPath, err := filepath.Rel(rootAbs, absPath)
-		if err != nil {
-			return fmt.Errorf("rel %s: %w", path, err)
-		}
+	targets, err := g.expandPaths(paths, rootAbs)
+	if err != nil {
+		return err
+	}
 
+	for _, relPath := range targets {
 		entry := g.Index.Get(relPath)
 		if entry == nil {
 			return fmt.Errorf("%s is not tracked", relPath)
@@ -814,16 +810,14 @@ func (g *GDA) Unlock(paths []string) error {
 			continue
 		}
 
+		absPath := filepath.Join(rootAbs, relPath)
+
 		fi, err := os.Lstat(absPath)
 		if err != nil {
 			if os.IsNotExist(err) {
 				return fmt.Errorf("file not found: %s", relPath)
 			}
 			return fmt.Errorf("stat %s: %w", relPath, err)
-		}
-
-		if fi.IsDir() {
-			return fmt.Errorf("%s is a directory, cannot unlock", relPath)
 		}
 
 		if fi.Mode()&os.ModeSymlink == 0 {
@@ -869,15 +863,13 @@ func (g *GDA) Lock(paths []string) error {
 		return fmt.Errorf("abs root: %w", err)
 	}
 
-	for _, path := range paths {
-		absPath, err := filepath.Abs(path)
-		if err != nil {
-			return fmt.Errorf("abs %s: %w", path, err)
-		}
-		relPath, err := filepath.Rel(rootAbs, absPath)
-		if err != nil {
-			return fmt.Errorf("rel %s: %w", path, err)
-		}
+	targets, err := g.expandPaths(paths, rootAbs)
+	if err != nil {
+		return err
+	}
+
+	for _, relPath := range targets {
+		absPath := filepath.Join(rootAbs, relPath)
 
 		entry := g.Index.Get(relPath)
 		if entry == nil {
@@ -947,6 +939,53 @@ func (g *GDA) Lock(paths []string) error {
 	return g.Index.Save()
 }
 
+// expandPaths resolves each path argument. Files are returned as-is.
+// Directories are expanded to all tracked entries under that prefix.
+func (g *GDA) expandPaths(paths []string, rootAbs string) ([]string, error) {
+	var targets []string
+	seen := make(map[string]bool)
+
+	for _, path := range paths {
+		absPath, err := filepath.Abs(path)
+		if err != nil {
+			return nil, fmt.Errorf("abs %s: %w", path, err)
+		}
+
+		relPath, err := filepath.Rel(rootAbs, absPath)
+		if err != nil {
+			return nil, fmt.Errorf("rel %s: %w", path, err)
+		}
+		if strings.HasPrefix(relPath, "..") {
+			return nil, fmt.Errorf("%s is outside the repo", path)
+		}
+
+		fi, err := os.Stat(absPath)
+		if err != nil {
+			return nil, fmt.Errorf("stat %s: %w", relPath, err)
+		}
+
+		if !fi.IsDir() {
+			if !seen[relPath] {
+				targets = append(targets, relPath)
+				seen[relPath] = true
+			}
+			continue
+		}
+
+		// Directory — collect all tracked entries under this prefix
+		for _, entry := range g.Index.All() {
+			if relPath == "." || entry.Path == relPath || strings.HasPrefix(entry.Path, relPath+"/") {
+				if !seen[entry.Path] {
+					targets = append(targets, entry.Path)
+					seen[entry.Path] = true
+				}
+			}
+		}
+	}
+
+	return targets, nil
+}
+
 // Undo reverts the last lock operation for the given files.
 func (g *GDA) Undo(paths []string) error {
 	if len(paths) == 0 {
@@ -966,20 +1005,17 @@ func (g *GDA) Undo(paths []string) error {
 		return fmt.Errorf("abs root: %w", err)
 	}
 
+	targets, err := g.expandPaths(paths, rootAbs)
+	if err != nil {
+		return err
+	}
+
 	var restored int
-	for _, path := range paths {
-		absPath, err := filepath.Abs(path)
-		if err != nil {
-			return fmt.Errorf("abs %s: %w", path, err)
-		}
-		relPath, err := filepath.Rel(rootAbs, absPath)
-		if err != nil {
-			return fmt.Errorf("rel %s: %w", path, err)
-		}
+	for _, relPath := range targets {
+		absPath := filepath.Join(rootAbs, relPath)
 
 		entry := undo.pop(relPath)
 		if entry == nil {
-			fmt.Printf("%s has no undo state, skipping\n", relPath)
 			continue
 		}
 
